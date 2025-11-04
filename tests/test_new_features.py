@@ -209,3 +209,27 @@ def test_confirmation_key_handler(tmp_path: Path) -> None:
     assert handled
     assert browser.pending_action is None
     assert not test_file.exists()
+
+
+def test_refresh_active_pane(tmp_path: Path) -> None:
+    """Test that refresh reloads directory contents."""
+    browser = DualPaneBrowser(tmp_path, tmp_path)
+    browser.left.refresh_entries(BrowserMode.FILE)
+
+    # Record initial entry count
+    initial_count = len(browser.left.entries)
+
+    # Create a new file externally
+    new_file = tmp_path / "new_file.txt"
+    new_file.write_text("content", encoding="utf-8")
+
+    # Without refresh, entry count should be the same
+    assert len(browser.left.entries) == initial_count
+
+    # Refresh the active pane
+    browser._refresh_active_pane()
+
+    # After refresh, should see the new file
+    assert len(browser.left.entries) == initial_count + 1
+    assert any(entry.path == new_file for entry in browser.left.entries)
+    assert "Refreshed" in browser.status_message

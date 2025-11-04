@@ -91,6 +91,10 @@ class InputHandlersMixin:
             except PermissionError as err:
                 self.status_message = str(err)
             return True
+        if key_code in (ord("s"), ord("S")):
+            self._dismiss_overlays()
+            self._refresh_active_pane()
+            return True
         if self._handle_mode_command(key_code):
             return True
         if key_code == curses.KEY_RESIZE:
@@ -251,6 +255,17 @@ class InputHandlersMixin:
         """Show confirmation prompt for destructive action."""
         self.pending_action = (message, action)
         self.status_message = f"{message} (y/n)"
+
+    def _refresh_active_pane(self) -> None:
+        """Refresh the active pane to reload directory contents."""
+        pane = self._active_pane
+        try:
+            pane.refresh_entries(self.mode)
+            self.status_message = f"Refreshed {pane.current_dir}"
+        except PermissionError as err:
+            self.status_message = str(err)
+        except FileNotFoundError as err:
+            self.status_message = str(err)
 
     def _start_command_mode(self) -> None:
         """Switch to command entry mode."""
