@@ -45,6 +45,12 @@ def test_git_mode_stage_unstage_restore(tmp_path):
     browser = DualPaneBrowser(repo, repo)
     browser.mode = BrowserMode.GIT
 
+    # Note: _git_diff_entry now opens in pager, so we can't easily test output here
+    # We just verify it doesn't crash
+    browser.show_help = True
+    assert browser._handle_mode_command(ord("g")) is True
+    assert browser.show_help is False
+
     _select_entry(browser, tracked)
     browser._git_stage_entry()
 
@@ -58,7 +64,13 @@ def test_git_mode_stage_unstage_restore(tmp_path):
     assert " M tracked.txt" in status_after_unstage
 
     _select_entry(browser, tracked)
+    # Need to confirm the restore since it now requires confirmation
     browser._git_restore_entry()
+    assert browser.pending_action is not None
+    # Simulate pressing 'y' to confirm
+    _, action = browser.pending_action
+    browser.pending_action = None
+    action()
 
     status_after_restore = _run(["git", "status", "--porcelain"], cwd=repo).stdout.splitlines()
     assert status_after_restore == []

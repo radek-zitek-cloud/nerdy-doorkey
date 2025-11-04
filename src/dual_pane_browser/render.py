@@ -12,6 +12,7 @@ from .state import _PaneState
 if TYPE_CHECKING:
     from .browser import DualPaneBrowser
 
+# Box drawing characters
 BOX_TOP_LEFT = "┌"
 BOX_TOP_RIGHT = "┐"
 BOX_BOTTOM_LEFT = "└"
@@ -19,20 +20,28 @@ BOX_BOTTOM_RIGHT = "┘"
 BOX_HORIZONTAL = "─"
 BOX_VERTICAL = "│"
 
+# Terminal size limits
+MIN_TERMINAL_HEIGHT = 9
+MIN_TERMINAL_WIDTH = 40
+MIN_PANE_HEIGHT = 5
+
+# Layout ratios
+BOTTOM_PANE_RATIO = 3  # Terminal height divided by this
+
 
 def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -> None:  # type: ignore[name-defined]
     """Render the full dual-pane browser layout."""
     height, width = stdscr.getmaxyx()
     stdscr.erase()
 
-    if height < 9 or width < 40:
+    if height < MIN_TERMINAL_HEIGHT or width < MIN_TERMINAL_WIDTH:
         stdscr.addstr(0, 0, "Terminal too small for browser.")
         stdscr.refresh()
         return
 
-    bottom_height = max(height // 3, 4)
+    bottom_height = max(height // BOTTOM_PANE_RATIO, 4)
     top_height = height - bottom_height
-    if top_height < 5:
+    if top_height < MIN_PANE_HEIGHT:
         stdscr.addstr(0, 0, "Terminal height insufficient for layout.")
         stdscr.refresh()
         return
@@ -75,11 +84,11 @@ def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -
     )
 
     try:
-        curses.curs_set(1 if browser.in_command_mode else 0)
+        curses.curs_set(1 if (browser.in_command_mode or browser.in_rename_mode or browser.in_create_mode) else 0)
     except curses.error:
         pass
 
-    if browser.in_command_mode and command_cursor is not None:
+    if command_cursor is not None and (browser.in_command_mode or browser.in_rename_mode or browser.in_create_mode):
         try:
             stdscr.move(*command_cursor)
         except curses.error:
@@ -191,10 +200,16 @@ def render_command_area(
     if height < 3 or width < 10:
         return None
 
+    if browser.pending_action:
+        return render_confirmation_dialog(browser, stdscr, origin_y, origin_x, height, width)
     if browser.in_mode_prompt:
         return render_mode_prompt(browser, stdscr, origin_y, origin_x, height, width)
     if browser.show_help:
         return render_help_panel(browser, stdscr, origin_y, origin_x, height, width)
+    if browser.in_rename_mode:
+        return render_rename_input(browser, stdscr, origin_y, origin_x, height, width)
+    if browser.in_create_mode:
+        return render_create_input(browser, stdscr, origin_y, origin_x, height, width)
 
     draw_frame(stdscr, origin_y, origin_x, height, width)
     draw_frame_title(stdscr, origin_y, origin_x, width, "Command Console")
@@ -313,6 +328,133 @@ def render_help_panel(
             interior_width,
         )
     return None
+
+
+def render_confirmation_dialog(
+    browser: "DualPaneBrowser",
+    stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
+    origin_y: int,
+    origin_x: int,
+    height: int,
+    width: int,
+) -> Optional[Tuple[int, int]]:
+    """Render a confirmation dialog."""
+    if browser.pending_action is None:
+        return None
+
+    draw_frame(stdscr, origin_y, origin_x, height, width)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Confirm Action")
+    interior_width = max(width - 2, 0)
+    interior_height = max(height - 2, 0)
+    if interior_width <= 0 or interior_height <= 0:
+        return None
+
+    message, _ = browser.pending_action
+    prompt_x = origin_x + 1
+    y = origin_y + 1
+
+    lines = [
+        message,
+        "",
+        "Press [Y]es to confirm or [N]o/Esc to cancel.",
+    ]
+
+    for index, line in enumerate(lines):
+        if index >= interior_height:
+            break
+        attrs = curses.A_BOLD if index == 0 else curses.A_NORMAL
+        stdscr.addnstr(
+            y + index,
+            prompt_x,
+            truncate_end(line, interior_width).ljust(interior_width),
+            interior_width,
+            attrs,
+        )
+
+    return None
+
+
+def render_rename_input(
+    browser: "DualPaneBrowser",
+    stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
+    origin_y: int,
+    origin_x: int,
+    height: int,
+    width: int,
+) -> Optional[Tuple[int, int]]:
+    """Render the rename input."""
+    draw_frame(stdscr, origin_y, origin_x, height, width)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Rename")
+    interior_width = max(width - 2, 0)
+    interior_height = max(height - 2, 0)
+    if interior_width <= 0 or interior_height <= 0:
+        return None
+
+    prompt_x = origin_x + 1
+    prompt_y = origin_y + 1
+
+    prompt_prefix = "Name> "
+    prompt_text = f"{prompt_prefix}{browser.rename_buffer}"
+    truncated_prompt = truncate_end(prompt_text, interior_width)
+    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
+
+    status_y = prompt_y + 1
+    status_text = browser.status_message or "Enter new name (Enter to confirm, Esc to cancel)"
+    stdscr.addnstr(
+        status_y,
+        prompt_x,
+        truncate_end(status_text, interior_width).ljust(interior_width),
+        interior_width,
+    )
+
+    # Position cursor
+    cursor_x = prompt_x + len(prompt_prefix) + len(browser.rename_buffer)
+    max_cursor_x = prompt_x + interior_width - 1
+    if cursor_x > max_cursor_x:
+        cursor_x = max_cursor_x
+    return (prompt_y, cursor_x)
+
+
+def render_create_input(
+    browser: "DualPaneBrowser",
+    stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
+    origin_y: int,
+    origin_x: int,
+    height: int,
+    width: int,
+) -> Optional[Tuple[int, int]]:
+    """Render the create file/directory input."""
+    item_type = "Directory" if browser.create_is_dir else "File"
+    draw_frame(stdscr, origin_y, origin_x, height, width)
+    draw_frame_title(stdscr, origin_y, origin_x, width, f"Create {item_type}")
+    interior_width = max(width - 2, 0)
+    interior_height = max(height - 2, 0)
+    if interior_width <= 0 or interior_height <= 0:
+        return None
+
+    prompt_x = origin_x + 1
+    prompt_y = origin_y + 1
+
+    prompt_prefix = "Name> "
+    prompt_text = f"{prompt_prefix}{browser.create_buffer}"
+    truncated_prompt = truncate_end(prompt_text, interior_width)
+    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
+
+    status_y = prompt_y + 1
+    status_text = browser.status_message or "Enter name (Enter to create, Esc to cancel)"
+    stdscr.addnstr(
+        status_y,
+        prompt_x,
+        truncate_end(status_text, interior_width).ljust(interior_width),
+        interior_width,
+    )
+
+    # Position cursor
+    cursor_x = prompt_x + len(prompt_prefix) + len(browser.create_buffer)
+    max_cursor_x = prompt_x + interior_width - 1
+    if cursor_x > max_cursor_x:
+        cursor_x = max_cursor_x
+    return (prompt_y, cursor_x)
 
 
 def determine_column_widths(interior_width: int) -> Tuple[int, int, int, int]:
