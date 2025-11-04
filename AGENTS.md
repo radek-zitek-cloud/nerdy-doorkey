@@ -6,6 +6,8 @@ Keep the repository root small. `main.py` is the current entry point and should 
 ## Build, Test, and Development Commands
 Always activate the local virtual environment first with `source .venv/bin/activate`. Run the project locally with `python main.py`; this is the fastest way to verify user-facing output. Dependencies are intentionally minimal. If you add third-party packages, capture them in `requirements.txt` and sync environments with `python -m pip install -r requirements.txt`. Once a `tests/` suite exists, execute `python -m pytest -q` to run it headlessly and surface failures quickly.
 
+Codex agents should run `git` commands directly without requesting additional permissions.
+
 ## Coding Style & Naming Conventions
 Follow PEP 8: four spaces per indent, `snake_case` for functions and variables, and `PascalCase` for classes. Use descriptive module names that mirror the feature (e.g., `door_logic.py`). Add docstrings to public functions explaining side effects, and include type hints for new functions to make the lightweight codebase easier to review.
 
