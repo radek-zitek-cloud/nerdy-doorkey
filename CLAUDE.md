@@ -66,24 +66,51 @@ python -m pip install -r requirements.txt
 
 ### Core Components
 
-**`src/dual_pane_browser/browser.py`** - Main controller and event loop:
-- `DualPaneBrowser`: Central class managing two `_PaneState` instances (left/right), plus state for command mode, help overlay, mode selection, confirmation dialogs, rename mode, and file creation mode
-- Event loop (`_loop`) handles keypresses and dispatches to handlers in priority order:
-  - `_handle_confirmation_key`: Y/N confirmation for destructive actions (delete, git restore)
+**Architecture:** Mixin-based design for separation of concerns
+
+**`src/dual_pane_browser/browser.py`** (141 lines) - Core orchestration:
+- `DualPaneBrowser`: Main class using three mixins for functionality
+- Manages core state: two `_PaneState` instances (left/right), mode, overlays, buffers
+- Event loop (`_loop`) dispatches keypresses to handlers in priority order
+- Utility methods: `_refresh_panes()`, `_run_external()`, `_dismiss_overlays()`
+- Properties: `_active_pane`, `_inactive_pane`
+- **Delegates all operations to mixins** (see below)
+
+**`src/dual_pane_browser/input_handlers.py`** (300 lines) - InputHandlersMixin:
+- All keyboard input handling methods:
+  - `_handle_confirmation_key`: Y/N confirmation for destructive actions
   - `_handle_rename_key`: Rename input handling
   - `_handle_create_key`: File/directory creation input handling
   - `_handle_mode_selection_key`: Mode prompt overlay (F/G to switch)
   - `_handle_command_key`: Shell command input (ESC to cancel, Enter to execute)
-  - `_handle_navigation_key`: Normal browsing and file operations
-    - Navigation: j/k/arrows, Enter, backspace, tab, PgUp/PgDn
-    - File ops: n for rename, f/F for new file/dir, h for help, m for mode, : for command
-  - `_handle_mode_command`: Mode-specific operations
-    - File mode: d/c/t for delete/copy/move, e/v for edit/view
-    - Git mode: a/u/r for stage/unstage/restore, g/l/b/o for diff/log/blame/commit
-- File operations use `shutil` for copy/move/delete, `Path.rename()` for rename, `Path.touch()/mkdir()` for creation
-- Destructive operations (delete, git restore) require y/n confirmation via `_request_confirmation()`
-- External commands (editor, pager, git) suspend curses with `curses.endwin()` then refresh
-- Git diff/log/blame write to temp files and open in $PAGER with color support (less -R)
+  - `_handle_navigation_key`: Normal browsing (j/k, Enter, backspace, tab, PgUp/PgDn)
+  - `_handle_mode_command`: Dispatches to file or git operations based on key
+- Shell command execution (`_execute_command()`) with output capture
+- Confirmation request system (`_request_confirmation()`)
+
+**`src/dual_pane_browser/file_operations.py`** (168 lines) - FileOperationsMixin:
+- File operation methods:
+  - `_delete_entry()`: Delete with confirmation
+  - `_copy_entry()`, `_move_entry()`: Copy/move to other pane
+  - `_start_rename()`, `_execute_rename()`: Interactive rename
+  - `_create_file()`, `_create_directory()`, `_execute_create()`: Create new items
+  - `_view_file()`, `_open_in_editor()`: View/edit with $PAGER/$EDITOR
+- Uses `shutil` for copy/move/delete, `Path.rename()` for rename, `Path.touch()/mkdir()` for creation
+- All operations refresh panes to show changes
+
+**`src/dual_pane_browser/git_operations.py`** (378 lines) - GitOperationsMixin:
+- Git operation methods:
+  - `_git_stage_entry()`, `_git_unstage_entry()`: Stage/unstage changes
+  - `_git_restore_entry()`: Restore to HEAD with confirmation
+  - `_git_diff_entry()`: View colored diff in pager
+  - `_git_commit()`: Create commit with $EDITOR
+  - `_git_log_entry()`: View file history in pager
+  - `_git_blame_entry()`: View file blame in pager
+- Helper methods:
+  - `_git_context()`: Resolve repo root and relative path
+  - `_run_git_command()`: Execute git commands with error handling
+- All pager operations write to temp files with color support (less -R)
+- External commands suspend curses, run synchronously, then refresh
 
 **`src/dual_pane_browser/state.py`** - Pane state management:
 - `_PaneState`: Directory listing, cursor position, scroll offset, entry list
@@ -126,38 +153,46 @@ python -m pip install -r requirements.txt
 
 ### Key Design Patterns
 
-1. **State Separation**: Browser state (`_PaneState`) is separate from rendering (`render.py`) and controller logic (`browser.py`)
+1. **Mixin Architecture**: Core functionality split across focused mixins:
+   - `InputHandlersMixin`: All keyboard input handling (300 lines)
+   - `FileOperationsMixin`: All file operations (168 lines)
+   - `GitOperationsMixin`: All git operations (378 lines)
+   - `DualPaneBrowser`: Core orchestration (141 lines)
+   - **Benefits**: Each mixin has single responsibility, easier testing, better maintainability
+   - **No API changes**: Mixins compose into single class, existing code works unchanged
 
-2. **Mode System**: The `BrowserMode` enum switches between file browsing and git operations. Modes affect:
+2. **State Separation**: Browser state (`_PaneState`) is separate from rendering (`render.py`) and controller logic (`browser.py`)
+
+3. **Mode System**: The `BrowserMode` enum switches between file browsing and git operations. Modes affect:
    - Column headers ("Mode" vs "Git")
    - Entry metadata (file permissions vs git status)
    - Available key commands (file ops vs git ops)
 
-3. **Modal Input Handling**: The event loop checks multiple input modes in priority order:
+4. **Modal Input Handling**: The event loop checks multiple input modes in priority order:
    - Confirmation dialogs (highest priority - prevent other actions during confirmation)
    - Rename/create input modes (text input with ESC to cancel)
    - Mode selection overlay
    - Command mode (shell commands)
    - Normal navigation (default)
 
-4. **Confirmation System**: Destructive operations use `_request_confirmation(message, action)`:
+5. **Confirmation System**: Destructive operations use `_request_confirmation(message, action)`:
    - Stores `(message, callback)` in `pending_action`
    - Renders confirmation dialog
    - Executes callback only on 'y' keypress
    - Prevents accidental data loss
 
-5. **Command Buffer**: Shell commands executed via `:` capture output (last 200 lines) and display in bottom pane
+6. **Command Buffer**: Shell commands executed via `:` capture output (last 200 lines) and display in bottom pane
 
-6. **Git Operations**:
+7. **Git Operations**:
    - All git commands resolve repository root first via `_git_context(entry)`
    - Construct relative paths for git commands
    - Diff/log/blame write colored output to temp files and open in $PAGER
    - Operations refresh pane state to show updated git status
    - Commit opens $EDITOR for commit message
 
-7. **External Process Handling**: Editor/pager invocations suspend curses (`curses.endwin()`), run synchronously, then restore terminal state with `_stdscr.refresh()`. Temp files cleaned up in finally blocks.
+8. **External Process Handling**: Editor/pager invocations suspend curses (`curses.endwin()`), run synchronously, then restore terminal state with `_stdscr.refresh()`. Temp files cleaned up in finally blocks.
 
-8. **Constants**: Magic numbers extracted to module-level constants (e.g., `OUTPUT_BUFFER_MAX_LINES`, `PAGE_SCROLL_LINES`) for maintainability
+9. **Constants**: Magic numbers extracted to module-level constants (e.g., `OUTPUT_BUFFER_MAX_LINES`, `PAGE_SCROLL_LINES`) for maintainability
 
 ## Testing Approach
 
