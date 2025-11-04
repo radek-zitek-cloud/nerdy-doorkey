@@ -7,9 +7,11 @@ import stat
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 from .formatting import format_size, format_timestamp
+from .git_status import collect_git_status
+from .modes import BrowserMode
 
 
 class PaneStateError(Exception):
@@ -24,6 +26,7 @@ class _PaneEntry:
     mode: str = ""
     size: Optional[int] = None
     modified: Optional[datetime] = None
+    git_status: Optional[str] = None
 
     @property
     def display_name(self) -> str:
@@ -61,7 +64,7 @@ class _PaneState:
     scroll_offset: int = 0
     entries: List[_PaneEntry] = field(default_factory=list)
 
-    def refresh_entries(self) -> None:
+    def refresh_entries(self, mode: BrowserMode) -> None:
         """Populate `entries` with directory contents."""
         items: List[_PaneEntry] = []
 
@@ -83,6 +86,9 @@ class _PaneState:
 
         for entry in candidates:
             items.append(self._build_entry(entry))
+
+        if mode is BrowserMode.GIT:
+            self._attach_git_status(items)
 
         self.entries = items
         self.cursor_index = min(self.cursor_index, max(len(self.entries) - 1, 0))
@@ -123,7 +129,7 @@ class _PaneState:
             return None
         return self.entries[self.cursor_index]
 
-    def enter_selected(self) -> None:
+    def enter_selected(self, mode: BrowserMode) -> None:
         """Enter the highlighted directory if possible."""
         entry = self.selected_entry()
         if entry is None:
@@ -132,7 +138,7 @@ class _PaneState:
             self.current_dir = entry.path.resolve()
             self.cursor_index = 0
             self.scroll_offset = 0
-            self.refresh_entries()
+            self.refresh_entries(mode)
 
     def _build_entry(self, path: Path, *, is_parent: bool = False) -> _PaneEntry:
         """Construct a pane entry for the given path."""
@@ -172,6 +178,32 @@ class _PaneState:
             return path.is_dir()
         except OSError:
             return False
+
+    def _attach_git_status(self, entries: List[_PaneEntry]) -> None:
+        """Populate git status for entries when in git mode."""
+        if not entries:
+            return
+        repo_root, status_map = collect_git_status(self.current_dir)
+        if not status_map or repo_root is None:
+            return
+        repo_root = repo_root.resolve()
+        normalized_map: Dict[Path, str] = {}
+        for abs_path, status in status_map.items():
+            try:
+                normalized = abs_path.resolve()
+            except OSError:
+                continue
+            normalized_map[normalized] = status
+
+        for entry in entries:
+            try:
+                resolved_path = entry.path.resolve()
+            except OSError:
+                continue
+            status = normalized_map.get(resolved_path)
+            if status is None and entry.is_dir:
+                status = normalized_map.get(resolved_path / "")
+            entry.git_status = status
 
 
 __all__ = ["_PaneEntry", "_PaneState", "PaneStateError"]

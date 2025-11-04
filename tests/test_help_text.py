@@ -2,21 +2,24 @@ from src.dual_pane_browser.help_text import build_help_lines
 from src.dual_pane_browser.modes import BrowserMode
 
 
-def test_help_lines_include_general_commands():
+def test_help_lines_include_mode_header():
     lines = build_help_lines(BrowserMode.FILE)
-    assert any("Available Commands" in line for line in lines)
-    assert any("Arrow keys" in line for line in lines)
-    assert all(" q" not in line.lower() for line in lines)
+    assert lines[0].lower().startswith("display mode:")
+    assert any("navigation & layout" in line.lower() for line in lines)
 
 
-def test_help_lines_include_mode_specific_entries():
-    file_lines = build_help_lines(BrowserMode.FILE)
-    git_lines = build_help_lines(BrowserMode.GIT)
-
-    assert any("File Mode" in line for line in file_lines)
-    assert any("Git Mode" in line for line in git_lines)
-    assert any("delete" in line.lower() for line in file_lines)
-    assert any("editor" in line.lower() for line in git_lines)
-    assert any("stage item" in line.lower() for line in git_lines)
-    assert any("unstage item" in line.lower() for line in git_lines)
-    assert any("restore item" in line.lower() for line in git_lines)
+def test_help_lines_list_all_commands_for_every_mode():
+    for mode in (BrowserMode.FILE, BrowserMode.GIT):
+        lines = build_help_lines(mode)
+        joined = "\n".join(lines).lower()
+        for snippet in (
+            "delete highlighted item",
+            "copy item to the other pane",
+            "move item to the other pane",
+            "view file contents read-only",
+            "open file with $editor",
+            "stage item with git add",
+            "unstage item from index",
+            "restore item from head",
+        ):
+            assert snippet in joined

@@ -159,32 +159,30 @@ class DualPaneBrowser:
 
     def _handle_mode_command(self, key_code: int) -> bool:
         """Execute commands tied to the active mode."""
-        if self.mode is BrowserMode.FILE:
-            if key_code in (ord("d"), ord("D")):
-                self._delete_entry()
-                return True
-            if key_code in (ord("v"), ord("V")):
-                self._move_entry()
-                return True
-            if key_code in (ord("c"), ord("C")):
-                self._copy_entry()
-                return True
-        elif self.mode is BrowserMode.GIT:
-            if key_code in (ord("e"), ord("E")):
-                self._open_in_editor()
-                return True
-            if key_code in (ord("v"), ord("V")):
-                self._view_file()
-                return True
-            if key_code in (ord("a"), ord("A")):
-                self._git_stage_entry()
-                return True
-            if key_code in (ord("u"), ord("U")):
-                self._git_unstage_entry()
-                return True
-            if key_code in (ord("r"), ord("R")):
-                self._git_restore_entry()
-                return True
+        if key_code in (ord("d"), ord("D")):
+            self._delete_entry()
+            return True
+        if key_code in (ord("c"), ord("C")):
+            self._copy_entry()
+            return True
+        if key_code in (ord("t"), ord("T")):
+            self._move_entry()
+            return True
+        if key_code in (ord("v"), ord("V")):
+            self._view_file()
+            return True
+        if key_code in (ord("e"), ord("E")):
+            self._open_in_editor()
+            return True
+        if key_code in (ord("a"), ord("A")):
+            self._git_stage_entry()
+            return True
+        if key_code in (ord("u"), ord("U")):
+            self._git_unstage_entry()
+            return True
+        if key_code in (ord("r"), ord("R")):
+            self._git_restore_entry()
+            return True
         return False
 
     def _handle_command_key(self, key_code: int) -> bool:

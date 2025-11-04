@@ -5,6 +5,8 @@ from __future__ import annotations
 import curses
 from typing import Optional, Tuple, TYPE_CHECKING
 
+from .help_text import build_help_lines
+from .modes import BrowserMode
 from .state import _PaneState
 
 if TYPE_CHECKING:
@@ -50,6 +52,7 @@ def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -
         height=top_height,
         width=pane_width,
         is_active=(browser.active_index == 0),
+        mode=browser.mode,
     )
     render_browser_pane(
         stdscr,
@@ -59,6 +62,7 @@ def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -
         height=top_height,
         width=right_width,
         is_active=(browser.active_index == 1),
+        mode=browser.mode,
     )
 
     command_cursor = render_command_area(
@@ -93,6 +97,7 @@ def render_browser_pane(
     height: int,
     width: int,
     is_active: bool,
+    mode: BrowserMode,
 ) -> None:
     """Render a single pane within the provided bounds."""
     if height < 3 or width < 6:
@@ -126,7 +131,7 @@ def render_browser_pane(
     stdscr.addnstr(
         header_y,
         mode_x,
-        truncate("Mode", mode_width).ljust(mode_width),
+        truncate("Mode" if mode is BrowserMode.FILE else "Git", mode_width).ljust(mode_width),
         mode_width,
         header_attr,
     )
@@ -157,7 +162,11 @@ def render_browser_pane(
         name_attrs = base_attrs | (curses.A_BOLD if entry.is_dir else 0)
 
         name_text = truncate(entry.display_name, name_width)
-        mode_text = truncate(entry.display_mode, mode_width)
+        if mode is BrowserMode.FILE:
+            mode_value = entry.display_mode
+        else:
+            mode_value = entry.git_status or "-"
+        mode_text = truncate(mode_value, mode_width)
         size_text = truncate(entry.display_size, size_width)
         modified_text = truncate(entry.display_modified, modified_width)
 
@@ -182,6 +191,11 @@ def render_command_area(
     if height < 3 or width < 10:
         return None
 
+    if browser.in_mode_prompt:
+        return render_mode_prompt(browser, stdscr, origin_y, origin_x, height, width)
+    if browser.show_help:
+        return render_help_panel(browser, stdscr, origin_y, origin_x, height, width)
+
     draw_frame(stdscr, origin_y, origin_x, height, width)
     draw_frame_title(stdscr, origin_y, origin_x, width, "Command Console")
 
@@ -199,6 +213,7 @@ def render_command_area(
 
     status_y = prompt_y + 1
     status_text = browser.status_message or "Press : to enter command mode. q to quit."
+    status_text = f"[{browser.mode.label} mode] {status_text}"
     stdscr.addnstr(
         status_y,
         prompt_x,
@@ -231,6 +246,73 @@ def render_command_area(
     if cursor_x > max_cursor_x:
         cursor_x = max_cursor_x
     return (prompt_y, cursor_x)
+
+
+def render_mode_prompt(
+    browser: "DualPaneBrowser",
+    stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
+    origin_y: int,
+    origin_x: int,
+    height: int,
+    width: int,
+) -> Optional[Tuple[int, int]]:
+    draw_frame(stdscr, origin_y, origin_x, height, width)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Select Mode")
+    interior_width = max(width - 2, 0)
+    interior_height = max(height - 2, 0)
+    if interior_width <= 0 or interior_height <= 0:
+        return None
+
+    prompt_x = origin_x + 1
+    y = origin_y + 1
+    lines = [
+        f"Current: {browser.mode.label} mode",
+        "Choose new mode:",
+        "  [F] File mode",
+        "  [G] Git mode",
+        "Press Esc to cancel.",
+    ]
+
+    for index, line in enumerate(lines):
+        if index >= interior_height:
+            break
+        stdscr.addnstr(
+            y + index,
+            prompt_x,
+            truncate_end(line, interior_width).ljust(interior_width),
+            interior_width,
+        )
+    return None
+
+
+def render_help_panel(
+    browser: "DualPaneBrowser",
+    stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
+    origin_y: int,
+    origin_x: int,
+    height: int,
+    width: int,
+) -> Optional[Tuple[int, int]]:
+    draw_frame(stdscr, origin_y, origin_x, height, width)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Help")
+    interior_width = max(width - 2, 0)
+    interior_height = max(height - 2, 0)
+    if interior_width <= 0 or interior_height <= 0:
+        return None
+
+    lines = build_help_lines(browser.mode)
+    prompt_x = origin_x + 1
+    start_y = origin_y + 1
+    for index in range(interior_height):
+        y = start_y + index
+        text = lines[index] if index < len(lines) else ""
+        stdscr.addnstr(
+            y,
+            prompt_x,
+            truncate_end(text, interior_width).ljust(interior_width),
+            interior_width,
+        )
+    return None
 
 
 def determine_column_widths(interior_width: int) -> Tuple[int, int, int, int]:

@@ -12,32 +12,32 @@ GENERAL_COMMANDS = [
     ("Backspace", "Go to parent directory"),
     (":", "Run shell command in active directory"),
     ("Tab / Left / Right", "Switch panes"),
+    ("h", "Toggle help panel"),
+    ("m", "Choose display mode"),
 ]
 
-MODE_COMMANDS = {
-    BrowserMode.FILE: [
-        ("d", "Delete highlighted item"),
-        ("v", "Move item to the other pane"),
-        ("c", "Copy item to the other pane"),
-    ],
-    BrowserMode.GIT: [
-        ("e", "Open file with $EDITOR"),
-        ("v", "View file contents read-only"),
-        ("a", "Stage item with git add"),
-        ("u", "Unstage item from index"),
-        ("r", "Restore item from HEAD"),
-    ],
-}
+ACTION_COMMANDS = [
+    ("d", "Delete highlighted item"),
+    ("c", "Copy item to the other pane"),
+    ("t", "Move item to the other pane"),
+    ("v", "View file contents read-only"),
+    ("e", "Open file with $EDITOR"),
+    ("a", "Stage item with git add"),
+    ("u", "Unstage item from index"),
+    ("r", "Restore item from HEAD"),
+]
 
 
 def build_help_lines(mode: BrowserMode) -> List[str]:
     """Return formatted help lines for the current mode."""
-    lines: List[str] = ["Available Commands:"]
+    lines: List[str] = [f"Display mode: {mode.label}"]
+    lines.append("")
+    lines.append("Navigation & layout:")
     for key, message in GENERAL_COMMANDS:
         lines.append(f"  {key:<18} {message}")
     lines.append("")
-    lines.append(f"{mode.label} Mode:")
-    for key, message in MODE_COMMANDS.get(mode, []):
+    lines.append("File & git actions:")
+    for key, message in ACTION_COMMANDS:
         lines.append(f"  {key:<18} {message}")
     return lines
 
