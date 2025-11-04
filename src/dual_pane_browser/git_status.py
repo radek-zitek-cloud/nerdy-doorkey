@@ -23,9 +23,9 @@ def collect_git_status(directory: Path) -> Tuple[Path | None, Dict[Path, str]]:
     repo_root = Path(root_result.stdout.strip())
     try:
         status_result = subprocess.run(
-            ["git", "-C", str(repo_root), "status", "--porcelain=1"],
+            ["git", "-C", str(repo_root), "status", "--porcelain=1", "-z"],
             capture_output=True,
-            text=True,
+            text=False,
             check=False,
         )
     except OSError:
@@ -34,17 +34,34 @@ def collect_git_status(directory: Path) -> Tuple[Path | None, Dict[Path, str]]:
         return repo_root, {}
 
     status_map: Dict[Path, str] = {}
-    for raw_line in status_result.stdout.splitlines():
-        if not raw_line:
+    entries = status_result.stdout.split(b"\0")
+    index = 0
+    total = len(entries)
+
+    while index < total:
+        raw_entry = entries[index]
+        index += 1
+        if not raw_entry:
             continue
-        if len(raw_line) < 3:
+        if len(raw_entry) < 4:
             continue
-        status_code = raw_line[:2].strip()
-        path_part = raw_line[3:]
-        if " -> " in path_part:
-            path_part = path_part.split(" -> ", 1)[-1]
-        abs_path = (repo_root / path_part).resolve()
-        status_map[abs_path] = status_code or "-"
+
+        status_bytes = raw_entry[:2]
+        status_code = status_bytes.decode("ascii", errors="replace")
+
+        path_bytes = raw_entry[3:]
+        path_text = path_bytes.decode("utf-8", errors="surrogateescape")
+
+        # Renames/copies include an additional path entry; prefer the new name
+        if status_code and status_code[0] in ("R", "C") and index < total:
+            new_path_bytes = entries[index]
+            index += 1
+            if new_path_bytes:
+                path_text = new_path_bytes.decode("utf-8", errors="surrogateescape")
+
+        absolute = (repo_root / Path(path_text)).resolve(strict=False)
+        status_map[absolute] = status_code
+
     return repo_root, status_map
 
 
