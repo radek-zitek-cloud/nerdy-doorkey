@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
+from .colors import init_colors
 from .file_operations import FileOperationsMixin
 from .git_operations import GitOperationsMixin
 from .input_handlers import InputHandlersMixin
@@ -70,6 +71,9 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         curses.use_default_colors()
         stdscr.nodelay(False)
         stdscr.keypad(True)
+
+        # Initialize colors
+        init_colors()
 
         for pane in (self.left, self.right):
             pane.refresh_entries(self.mode)

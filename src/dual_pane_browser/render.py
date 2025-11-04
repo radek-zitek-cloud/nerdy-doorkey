@@ -5,6 +5,7 @@ from __future__ import annotations
 import curses
 from typing import Optional, Tuple, TYPE_CHECKING
 
+from .colors import get_file_color, get_git_color
 from .help_text import build_help_lines
 from .modes import BrowserMode
 from .state import _PaneState
@@ -165,10 +166,20 @@ def render_browser_pane(
     for index, entry in enumerate(entries):
         y = header_y + 1 + index
         absolute_index = pane.scroll_offset + index
-        base_attrs = curses.A_NORMAL
+
+        # Get appropriate color based on mode
+        if mode is BrowserMode.FILE:
+            color_attrs = get_file_color(entry)
+        else:
+            color_attrs = get_git_color(entry)
+
+        # Add reverse video for selected item
         if is_active and absolute_index == pane.cursor_index:
-            base_attrs |= curses.A_REVERSE
-        name_attrs = base_attrs | (curses.A_BOLD if entry.is_dir else 0)
+            name_attrs = color_attrs | curses.A_REVERSE
+            base_attrs = curses.A_REVERSE
+        else:
+            name_attrs = color_attrs
+            base_attrs = curses.A_NORMAL
 
         name_text = truncate(entry.display_name, name_width)
         if mode is BrowserMode.FILE:

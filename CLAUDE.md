@@ -30,6 +30,11 @@ This is a dual-pane terminal-based file browser built with Python curses. The ap
 - Context-sensitive help (h)
 - Confirmation dialogs for destructive operations
 - Status messages and command output display
+- Color-coded file display (mode-specific)
+
+**Color Scheme:**
+- File mode: Blue directories (bold), green executables (bold), cyan symlinks, gray hidden files, yellow readonly files
+- Git mode: Red untracked files (??), yellow modified unstaged, green staged, red deleted, cyan renamed, dim clean files
 
 ## Development Commands
 
@@ -114,9 +119,10 @@ python -m pip install -r requirements.txt
 
 **`src/dual_pane_browser/state.py`** - Pane state management:
 - `_PaneState`: Directory listing, cursor position, scroll offset, entry list
-- `_PaneEntry`: File/directory metadata (path, size, mode, timestamp, git status)
+- `_PaneEntry`: File/directory metadata (path, size, mode, timestamp, git status, is_executable, is_symlink, is_readonly)
 - Entries sorted with directories first, then alphabetically
 - `refresh_entries(mode)` rebuilds entry list; attaches git status when `mode == BrowserMode.GIT`
+- File attributes (executable, symlink, readonly) detected via stat() for color rendering
 - Cursor visibility managed by `ensure_cursor_visible(viewport_height)`
 
 **`src/dual_pane_browser/modes.py`** - Browser mode enumeration:
@@ -128,9 +134,20 @@ python -m pip install -r requirements.txt
 - Handles renames (splits on ` -> ` and takes destination)
 - Returns empty dict if not in a git repository
 
+**`src/dual_pane_browser/colors.py`** - Color management:
+- `ColorPair`: IntEnum defining all color pair constants for curses
+- `init_colors()`: Initializes curses color pairs (called in event loop setup)
+- `get_file_color(entry)`: Returns appropriate color attributes for File mode based on entry type
+- `get_git_color(entry)`: Returns appropriate color attributes for Git mode based on git status
+- File mode colors: Blue directories, green executables, cyan symlinks, gray hidden files, yellow readonly
+- Git mode colors: Red untracked, yellow modified, green staged, red deleted, cyan renamed, dim clean
+- Colors combine with curses attributes (e.g., A_BOLD, A_REVERSE for selection)
+
 **`src/dual_pane_browser/render.py`** - All curses rendering:
 - `render_browser()`: Top-level layout with dynamic sizing (splits terminal into top 2/3 browser panes, bottom 1/3 command/output)
 - `render_browser_pane()`: Individual pane rendering with columns (Name, Mode/Git, Size, Modified)
+  - Applies colors from `get_file_color()` or `get_git_color()` based on current mode
+  - Combines colors with A_REVERSE attribute for cursor selection
 - `render_command_area()`: Delegates to specialized renderers based on browser state:
   - `render_confirmation_dialog()`: Y/N confirmation prompt
   - `render_rename_input()`: Rename input with cursor positioning

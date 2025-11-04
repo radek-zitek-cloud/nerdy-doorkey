@@ -27,6 +27,9 @@ class _PaneEntry:
     size: Optional[int] = None
     modified: Optional[datetime] = None
     git_status: Optional[str] = None
+    is_executable: bool = False
+    is_symlink: bool = False
+    is_readonly: bool = False
 
     @property
     def display_name(self) -> str:
@@ -147,10 +150,27 @@ class _PaneState:
         mode = stat.filemode(stat_info.st_mode) if stat_info else ""
         size: Optional[int] = None
         modified: Optional[datetime] = None
+        is_executable = False
+        is_symlink = False
+        is_readonly = False
+
         if stat_info:
             modified = datetime.fromtimestamp(stat_info.st_mtime)
             if not stat.S_ISDIR(stat_info.st_mode):
                 size = stat_info.st_size
+
+            # Check if file is a symlink
+            try:
+                is_symlink = path.is_symlink()
+            except OSError:
+                pass
+
+            # Check if file is executable (for non-directories)
+            if not is_dir:
+                is_executable = bool(stat_info.st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH))
+
+            # Check if file is readonly (not writable by user)
+            is_readonly = not bool(stat_info.st_mode & stat.S_IWUSR)
 
         return _PaneEntry(
             path=path,
@@ -159,6 +179,9 @@ class _PaneState:
             mode=mode,
             size=size,
             modified=modified,
+            is_executable=is_executable,
+            is_symlink=is_symlink,
+            is_readonly=is_readonly,
         )
 
     @staticmethod
