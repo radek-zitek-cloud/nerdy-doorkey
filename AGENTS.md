@@ -10,6 +10,7 @@ Codex agents should run `git` commands directly without requesting additional pe
 
 ## Coding Style & Naming Conventions
 Follow PEP 8: four spaces per indent, `snake_case` for functions and variables, and `PascalCase` for classes. Use descriptive module names that mirror the feature (e.g., `door_logic.py`). Add docstrings to public functions explaining side effects, and include type hints for new functions to make the lightweight codebase easier to review.
+Prefer short, readable source files by splitting complex features into focused modules instead of long monolithic files.
 
 ## Testing Guidelines
 Adopt `pytest` for unit and behavior checks. Place files inside `tests/` and name them `test_<feature>.py` to keep discovery predictable. Focus on pure functions where possible and use `capsys` to assert console output from `main.py`. Aim to cover new code paths introduced in each change; add regression tests for every bug fix before merging.
