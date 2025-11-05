@@ -7,19 +7,12 @@ from typing import List
 from .modes import BrowserMode
 
 def build_help_lines(mode: BrowserMode) -> List[str]:
-    """Return formatted help lines for the current mode."""
-    if mode == BrowserMode.FILE:
-        return [
-            "File Mode: ↑↓/jk move | Enter open | Bksp up | Tab pane | s refresh | : cmd | h help | m mode | q quit",
-            "n rename | d del* | c copy | t move | v view | e edit | f newfile | F newdir",
-            "*Destructive ops need confirm (y/n)",
-        ]
-    else:
-        return [
-            "Git Mode: ↑↓/jk move | Enter open | Bksp up | Tab pane | s refresh | : cmd | h help | m mode | q quit",
-            "a stage | u unstage | r restore* | g diff | l log | b blame | o commit",
-            "*Destructive ops need confirm (y/n)",
-        ]
+    """Return formatted help lines for all modes (all commands available)."""
+    return [
+        f"{mode.label}: ↑↓/jk move | Tab pane | Enter open | Bksp up | s refresh | S ssh | x disconnect | m mode | h help | q quit",
+        "File: n rename | d del* | c copy | t move | v view | e edit | f file | F dir | : cmd",
+        "Git: a stage | u unstage | r restore* | g diff | l log | b blame | o commit | *confirm needed",
+    ]
 
 
 __all__ = ["build_help_lines"]

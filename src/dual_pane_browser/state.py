@@ -2,25 +2,44 @@
 
 from __future__ import annotations
 
+import grp
 import os
+import pwd
 import stat
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from pathlib import Path, PurePosixPath
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 from .formatting import format_size, format_timestamp
 from .git_status import collect_git_status
 from .modes import BrowserMode
+from .ssh_connection import SSHConnection
 
 
 class PaneStateError(Exception):
     """Raised when pane state operations fail."""
 
 
+def _get_owner_name(uid: int) -> str:
+    """Convert UID to username, fallback to UID string."""
+    try:
+        return pwd.getpwuid(uid).pw_name
+    except (KeyError, AttributeError):
+        return str(uid)
+
+
+def _get_group_name(gid: int) -> str:
+    """Convert GID to group name, fallback to GID string."""
+    try:
+        return grp.getgrgid(gid).gr_name
+    except (KeyError, AttributeError):
+        return str(gid)
+
+
 @dataclass
 class _PaneEntry:
-    path: Path
+    path: Union[Path, str]  # Path for local, str for remote
     is_dir: bool
     is_parent: bool = False
     mode: str = ""
@@ -30,13 +49,19 @@ class _PaneEntry:
     is_executable: bool = False
     is_symlink: bool = False
     is_readonly: bool = False
+    is_remote: bool = False
+    owner_user: Optional[str] = None
+    owner_group: Optional[str] = None
 
     @property
     def display_name(self) -> str:
         """Return the text shown for the entry."""
         if self.is_parent:
             return ".."
-        name = self.path.name or str(self.path)
+        if self.is_remote:
+            name = PurePosixPath(str(self.path)).name
+        else:
+            name = Path(self.path).name or str(self.path)
         suffix = "/" if self.is_dir else ""
         return f"{name}{suffix}"
 
@@ -59,32 +84,60 @@ class _PaneEntry:
             return "-"
         return format_timestamp(self.modified)
 
+    @property
+    def display_owner(self) -> str:
+        """Return a printable owner string (user:group)."""
+        if self.owner_user is None or self.owner_group is None:
+            return "-"
+        return f"{self.owner_user}:{self.owner_group}"
+
 
 @dataclass
 class _PaneState:
-    current_dir: Path
+    current_dir: Union[Path, str]  # Path for local, str for remote
     cursor_index: int = 0
     scroll_offset: int = 0
     entries: List[_PaneEntry] = field(default_factory=list)
+    ssh_connection: Optional[SSHConnection] = None
+
+    @property
+    def is_remote(self) -> bool:
+        """Check if this pane is connected to a remote host."""
+        return self.ssh_connection is not None and self.ssh_connection.is_connected
+
+    @property
+    def current_dir_display(self) -> str:
+        """Get display string for current directory."""
+        if self.is_remote:
+            return f"{self.ssh_connection}:{self.current_dir}"
+        return str(self.current_dir)
 
     def refresh_entries(self, mode: BrowserMode) -> None:
         """Populate `entries` with directory contents."""
-        items: List[_PaneEntry] = []
+        if self.is_remote:
+            self._refresh_remote_entries(mode)
+        else:
+            self._refresh_local_entries(mode)
 
-        if self.current_dir != self.current_dir.parent:
-            items.append(self._build_entry(self.current_dir.parent, is_parent=True))
+    def _refresh_local_entries(self, mode: BrowserMode) -> None:
+        """Populate entries from local directory."""
+        items: List[_PaneEntry] = []
+        current = Path(self.current_dir)
+
+        if current != current.parent:
+            items.append(self._build_entry(current.parent, is_parent=True))
 
         try:
             candidates: Iterable[Path] = sorted(
-                self.current_dir.iterdir(), key=self._sort_key
+                current.iterdir(), key=self._sort_key
             )
         except PermissionError as err:
             raise PermissionError(
-                f"Permission denied reading directory: {self.current_dir}"
+                f"Permission denied reading directory: {current}"
             ) from err
         except FileNotFoundError as err:
             raise FileNotFoundError(
-                f"Directory not found: {self.current_dir}"
+                f"Directory not found: {current}"
             ) from err
 
         for entry in candidates:
@@ -93,6 +146,39 @@ class _PaneState:
         if mode is BrowserMode.GIT:
             self._attach_git_status(items)
 
+        self.entries = items
+        self.cursor_index = min(self.cursor_index, max(len(self.entries) - 1, 0))
+        self.scroll_offset = min(self.scroll_offset, max(len(self.entries) - 1, 0))
+
+    def _refresh_remote_entries(self, mode: BrowserMode) -> None:
+        """Populate entries from remote directory via SSH."""
+        if not self.is_remote or not self.ssh_connection:
+            return
+
+        items: List[_PaneEntry] = []
+        current = PurePosixPath(str(self.current_dir))
+
+        # Add parent directory entry if not at root
+        if current != current.parent:
+            items.append(self._build_remote_entry(str(current.parent), is_parent=True))
+
+        try:
+            entries = self.ssh_connection.list_directory(str(current))
+            # Sort: directories first, then alphabetically
+            entries.sort(key=lambda x: (0 if stat.S_ISDIR(x[1].st_mode or 0) else 1, x[0].lower()))
+
+            for name, attrs in entries:
+                if name in ('.', '..'):
+                    continue
+                full_path = str(current / name)
+                items.append(self._build_remote_entry(full_path, attrs=attrs))
+
+        except IOError as err:
+            raise PermissionError(
+                f"Error reading remote directory: {current}"
+            ) from err
+
+        # Git operations not supported for remote
         self.entries = items
         self.cursor_index = min(self.cursor_index, max(len(self.entries) - 1, 0))
         self.scroll_offset = min(self.scroll_offset, max(len(self.entries) - 1, 0))
@@ -138,7 +224,10 @@ class _PaneState:
         if entry is None:
             return
         if entry.is_dir:
-            self.current_dir = entry.path.resolve()
+            if self.is_remote:
+                self.current_dir = str(entry.path)
+            else:
+                self.current_dir = Path(entry.path).resolve()
             self.cursor_index = 0
             self.scroll_offset = 0
             self.refresh_entries(mode)
@@ -153,6 +242,8 @@ class _PaneState:
         is_executable = False
         is_symlink = False
         is_readonly = False
+        owner_user: Optional[str] = None
+        owner_group: Optional[str] = None
 
         if stat_info:
             modified = datetime.fromtimestamp(stat_info.st_mtime)
@@ -172,6 +263,10 @@ class _PaneState:
             # Check if file is readonly (not writable by user)
             is_readonly = not bool(stat_info.st_mode & stat.S_IWUSR)
 
+            # Get ownership info
+            owner_user = _get_owner_name(stat_info.st_uid)
+            owner_group = _get_group_name(stat_info.st_gid)
+
         return _PaneEntry(
             path=path,
             is_dir=is_dir,
@@ -182,6 +277,70 @@ class _PaneState:
             is_executable=is_executable,
             is_symlink=is_symlink,
             is_readonly=is_readonly,
+            is_remote=False,
+            owner_user=owner_user,
+            owner_group=owner_group,
+        )
+
+    def _build_remote_entry(self, path: str, *, is_parent: bool = False, attrs=None) -> _PaneEntry:
+        """Construct a pane entry for a remote path."""
+        if attrs is None and not is_parent and self.ssh_connection:
+            try:
+                attrs = self.ssh_connection.stat(path)
+            except:
+                attrs = None
+
+        is_dir = False
+        mode = ""
+        size: Optional[int] = None
+        modified: Optional[datetime] = None
+        is_executable = False
+        is_symlink = False
+        is_readonly = False
+        owner_user: Optional[str] = None
+        owner_group: Optional[str] = None
+
+        if attrs:
+            is_dir = stat.S_ISDIR(attrs.st_mode or 0)
+            mode = stat.filemode(attrs.st_mode) if attrs.st_mode else ""
+            if not is_dir and attrs.st_size is not None:
+                size = attrs.st_size
+            if attrs.st_mtime is not None:
+                modified = datetime.fromtimestamp(attrs.st_mtime)
+
+            # Check if executable
+            if not is_dir and attrs.st_mode:
+                is_executable = bool(attrs.st_mode & (stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH))
+
+            # Check if readonly (not writable by user)
+            if attrs.st_mode:
+                is_readonly = not bool(attrs.st_mode & stat.S_IWUSR)
+
+            # Symlinks detection is limited in SFTP
+            is_symlink = stat.S_ISLNK(attrs.st_mode or 0)
+
+            # Get ownership info (remote uses numeric IDs as SFTP doesn't resolve names)
+            if hasattr(attrs, 'st_uid') and attrs.st_uid is not None:
+                owner_user = str(attrs.st_uid)
+            if hasattr(attrs, 'st_gid') and attrs.st_gid is not None:
+                owner_group = str(attrs.st_gid)
+        else:
+            # If we don't have attrs, assume it's a directory if is_parent
+            is_dir = is_parent
+
+        return _PaneEntry(
+            path=path,
+            is_dir=is_dir,
+            is_parent=is_parent,
+            mode=mode,
+            size=size,
+            modified=modified,
+            is_executable=is_executable,
+            is_symlink=is_symlink,
+            is_readonly=is_readonly,
+            is_remote=True,
+            owner_user=owner_user,
+            owner_group=owner_group,
         )
 
     @staticmethod

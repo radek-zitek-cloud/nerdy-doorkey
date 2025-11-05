@@ -19,24 +19,26 @@ Complete documentation of all commands, keybindings, git status symbols, and col
 | `PgDn` | Move cursor down by 5 lines |
 | `Enter` | Enter selected directory |
 | `Backspace` | Go to parent directory |
-| `→` / `l` / `Tab` | Switch to right pane |
+| `→` / `Tab` | Switch to right pane |
 | `←` / `Shift+Tab` | Switch to left pane |
 
-## File Operations (Available in Both Modes)
+## File Operations (Available in All Modes)
 
 | Key | Command | Description |
 |-----|---------|-------------|
-| `c` | Copy | Copy selected file/directory to the other pane |
-| `t` | Move | Move selected file/directory to the other pane |
-| `d` | Delete | Delete selected file/directory (requires confirmation) |
-| `n` | Rename | Rename selected file/directory (interactive input) |
-| `f` | Create File | Create a new file in current directory (interactive input) |
-| `F` | Create Directory | Create a new directory in current directory (interactive input) |
-| `v` | View | View selected file in $PAGER (default: less) |
-| `e` | Edit | Edit selected file in $EDITOR (default: vi) |
+| `c` | Copy | Copy selected file/directory to the other pane (works between local/remote) |
+| `t` | Move | Move selected file/directory to the other pane (works between local/remote) |
+| `d` | Delete | Delete selected file/directory (requires confirmation, works on remote) |
+| `n` | Rename | Rename selected file/directory (interactive input, works on remote) |
+| `f` | Create File | Create a new file in current directory (interactive input, works on remote) |
+| `F` | Create Directory | Create a new directory in current directory (interactive input, works on remote) |
+| `v` | View | View selected file in $PAGER (downloads remote files to temp) |
+| `e` | Edit | Edit selected file in $EDITOR (remote files: download→edit→upload) |
 | `s` | Refresh | Reload directory contents of active pane |
+| `S` | SSH Connect | Connect active pane to remote host via SSH |
+| `x` | SSH Disconnect | Disconnect active pane from remote host and return to local |
 
-## Git Operations (Available in Both Modes)
+## Git Operations (Available in All Modes)
 
 | Key | Command | Description |
 |-----|---------|-------------|
@@ -50,11 +52,14 @@ Complete documentation of all commands, keybindings, git status symbols, and col
 
 ## Mode Commands
 
+**Note:** All file and git operations are available in all modes. Modes only change what information is displayed in the columns.
+
 | Key | Mode | Description |
 |-----|------|-------------|
-| `m` | Both | Open mode selection prompt |
-| `f` | Prompt | Switch to File mode |
-| `g` | Prompt | Switch to Git mode |
+| `m` | All | Open mode selection prompt |
+| `f` | Prompt | Switch to File mode (shows size and modification time) |
+| `g` | Prompt | Switch to Git mode (shows git status) |
+| `o` | Prompt | Switch to Owner mode (shows user:group ownership) |
 
 ## Other Commands
 
@@ -84,6 +89,18 @@ Complete documentation of all commands, keybindings, git status symbols, and col
 - Press `Enter` to create
 - Press `Esc` to cancel
 - Press `Backspace` to delete characters
+
+### SSH Connection Mode (`S`)
+- Enter host address (e.g., `server.example.com` or `192.168.1.100`)
+- Press `Enter` or `Tab` to move to next field
+- Enter username (defaults to current user)
+- Press `Enter` or `Tab` to move to password field
+- Enter password (displayed as `***`)
+- Press `Enter` to connect
+- Press `Esc` to cancel at any time
+- Connected pane shows `user@host:path` in title
+- Shell commands (`:`) execute on remote host
+- File operations work transparently on remote files
 
 ### Confirmation Dialogs
 Some destructive operations require confirmation:
@@ -194,6 +211,77 @@ The parent directory entry is always shown in **bold blue** in both modes.
 - **Size:** File size in human-readable format
 - **Modified:** Last modification timestamp
 
+**Owner Mode:**
+- **Name:** Filename (directories end with `/`)
+- **Mode:** Unix file permissions (e.g., `drwxr-xr-x`)
+- **User:** File owner username (or UID for remote)
+- **Group:** File owner group name (or GID for remote)
+
+## Remote (SSH) Operations
+
+### Connecting to Remote Host
+
+Press `S` (Shift+s) to initiate SSH connection in active pane:
+
+1. **Host:** Enter hostname or IP address
+2. **User:** Enter username (default: current user)
+3. **Password:** Enter password (shown as `***`)
+4. **Connect:** Press Enter to establish connection
+
+Once connected:
+- Pane title shows: `user@host:/remote/path`
+- Browse remote filesystem like local
+- All file operations work transparently
+
+### Disconnecting from Remote Host
+
+Press `x` to disconnect the active pane from SSH:
+- Closes the SSH connection
+- Returns pane to local home directory
+- All file operations revert to local filesystem
+
+### Remote File Operations Support
+
+All operations work seamlessly on remote files:
+
+| Operation | How It Works |
+|-----------|-------------|
+| **Browse** | Navigate remote directories with arrow keys/Enter |
+| **Copy** | `c` - Copy local↔remote, remote↔local, remote↔remote |
+| **Move** | `t` - Move local↔remote (copy + delete source) |
+| **Delete** | `d` - Delete remote files/directories (recursive) |
+| **Rename** | `n` - Rename remote files/directories |
+| **Create** | `f`/`F` - Create remote files/directories |
+| **View** | `v` - Download to temp, open in $PAGER, clean up |
+| **Edit** | `e` - Download to temp, edit, upload changes back |
+| **Commands** | `:` - Execute shell commands on remote host |
+
+### Mixed Local/Remote Workflows
+
+You can browse local and remote simultaneously:
+
+**Uploading Files to Server:**
+1. Left pane: Local directory
+2. Right pane: Press `S` and connect to server
+3. Navigate both panes to desired locations
+4. Select files in left pane, press `c` to copy to remote
+
+**Downloading Files from Server:**
+1. Left pane: Connect to server with `S`
+2. Right pane: Local destination directory
+3. Select files in left pane, press `c` to copy to local
+
+**Copying Between Servers:**
+1. Left pane: Connect to server1
+2. Right pane: Connect to server2
+3. Select files, press `c` to copy (via local temp)
+
+**Editing Remote Config:**
+1. Connect to server with `S`
+2. Navigate to config file
+3. Press `e` to edit
+4. Changes automatically uploaded on save
+
 ## Tips & Tricks
 
 ### Workflow Examples
@@ -250,7 +338,7 @@ Respond with `y` to proceed or `n`/`Esc` to cancel.
 ```
 Navigation:     ↑↓/jk  PgUp/PgDn  Enter  Backspace  Tab/←→
 Files:          c)opy  t)ransfer  d)elete  n)ame  f)ile  F)older
-Edit:           v)iew  e)dit  s)ync
+Edit:           v)iew  e)dit  s)ync  S)sh
 Git:            a)dd  u)nstage  r)estore  g)diff  o)commit  l)og  b)lame
 Other:          :cmd  m)ode  h)elp  q)uit
 ```
@@ -265,6 +353,9 @@ Other:          :cmd  m)ode  h)elp  q)uit
 | `Command failed: ...` | Shell command error | Check command syntax and permissions |
 | `Not in a git repository` | Git operation outside repo | Navigate to git repository |
 | `File not found` | File was deleted | Refresh with `s` or navigate away |
+| `SSH connection failed: ...` | Cannot connect to remote | Check hostname, credentials, network connectivity |
+| `No SSH connection` | Operation requires connection | Connect first with `S` |
+| `Copy failed: ...` | Transfer error | Check permissions, disk space, network connection |
 
 ## Platform Notes
 
@@ -284,6 +375,16 @@ Other:          :cmd  m)ode  h)elp  q)uit
 - Symbolic links preserved during copy
 - Hidden files (dotfiles) fully supported
 - Large files may take time to copy (no progress indicator)
+
+### SSH/Remote Operations
+- Requires `paramiko` Python library (installed with requirements.txt)
+- Password authentication supported (key-based auth available via SSH agent)
+- Remote paths use POSIX format (forward slashes)
+- Each pane can connect to different remote hosts
+- Remote-to-remote copies use local system as intermediary
+- Temp files used for view/edit operations (cleaned up automatically)
+- Remote operations work over SFTP protocol
+- Connection details: hostname, username, password (optional: port 22 default)
 
 ## See Also
 

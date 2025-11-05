@@ -16,6 +16,19 @@ This is a dual-pane terminal-based file browser built with Python curses. The ap
 - View files in pager (v) and edit in $EDITOR (e)
 - Execute shell commands in current directory (:)
 
+**SSH/Remote Operations:**
+- Connect to remote hosts via SSH (Shift+S)
+- Browse remote directories and files
+- Execute commands on remote hosts
+- View remote files (downloads to temp, opens in $PAGER)
+- Edit remote files (downloads to temp, opens in $EDITOR, uploads changes back)
+- Copy files/directories: local↔remote, remote↔remote
+- Move files/directories: local↔remote, remote↔remote
+- Delete remote files and directories (recursive)
+- Rename remote files and directories
+- Create remote files and directories
+- Mixed local/remote browsing (one pane local, one pane remote)
+
 **Git Integration (Git mode):**
 - View git status inline (M, A, D, ??, etc.)
 - Stage (a) and unstage (u) files
@@ -81,26 +94,35 @@ python -m pip install -r requirements.txt
 - Properties: `_active_pane`, `_inactive_pane`
 - **Delegates all operations to mixins** (see below)
 
-**`src/dual_pane_browser/input_handlers.py`** (300 lines) - InputHandlersMixin:
+**`src/dual_pane_browser/input_handlers.py`** (~440 lines) - InputHandlersMixin:
 - All keyboard input handling methods:
   - `_handle_confirmation_key`: Y/N confirmation for destructive actions
+  - `_handle_ssh_connect_key`: SSH connection dialog input (Tab between fields, Enter to connect)
   - `_handle_rename_key`: Rename input handling
   - `_handle_create_key`: File/directory creation input handling
   - `_handle_mode_selection_key`: Mode prompt overlay (F/G to switch)
   - `_handle_command_key`: Shell command input (ESC to cancel, Enter to execute)
-  - `_handle_navigation_key`: Normal browsing (j/k, Enter, backspace, tab, PgUp/PgDn)
+  - `_handle_navigation_key`: Normal browsing (j/k, Enter, backspace, tab, PgUp/PgDn, Shift+S for SSH)
   - `_handle_mode_command`: Dispatches to file or git operations based on key
-- Shell command execution (`_execute_command()`) with output capture
+- Shell command execution (`_execute_command()`) with output capture, supports both local and remote execution
+- SSH connection management (`_start_ssh_connect()`, `_execute_ssh_connect()`)
 - Confirmation request system (`_request_confirmation()`)
 
-**`src/dual_pane_browser/file_operations.py`** (168 lines) - FileOperationsMixin:
-- File operation methods:
-  - `_delete_entry()`: Delete with confirmation
-  - `_copy_entry()`, `_move_entry()`: Copy/move to other pane
-  - `_start_rename()`, `_execute_rename()`: Interactive rename
-  - `_create_file()`, `_create_directory()`, `_execute_create()`: Create new items
-  - `_view_file()`, `_open_in_editor()`: View/edit with $PAGER/$EDITOR
-- Uses `shutil` for copy/move/delete, `Path.rename()` for rename, `Path.touch()/mkdir()` for creation
+**`src/dual_pane_browser/file_operations.py`** (~475 lines) - FileOperationsMixin:
+- File operation methods supporting both local and remote:
+  - `_delete_entry()`: Delete with confirmation (local or remote, recursive for directories)
+  - `_copy_entry()`: Universal copy supporting all combinations (local↔local, local↔remote, remote↔local, remote↔remote)
+  - `_move_entry()`: Universal move (copy + delete source)
+  - `_start_rename()`, `_execute_rename()`: Interactive rename (local or remote)
+  - `_create_file()`, `_create_directory()`, `_execute_create()`: Create new items (local or remote)
+  - `_view_file()`: View with $PAGER (downloads remote files to temp)
+  - `_open_in_editor()`: Edit with $EDITOR (downloads remote, uploads changes back if modified)
+- Helper methods for remote operations:
+  - `_delete_remote_dir_recursive()`: Recursive remote directory deletion
+  - `_copy_local_to_local()`, `_copy_remote_to_local()`, `_copy_local_to_remote()`, `_copy_remote_to_remote()`: Copy routing
+  - `_copy_remote_dir_to_local()`, `_copy_local_dir_to_remote()`: Recursive directory copy via SFTP
+- Remote-to-remote copies use temp directory as intermediary
+- Edit operations detect file changes by comparing mtime before/after editing
 - All operations refresh panes to show changes
 
 **`src/dual_pane_browser/git_operations.py`** (378 lines) - GitOperationsMixin:
@@ -118,12 +140,22 @@ python -m pip install -r requirements.txt
 - External commands suspend curses, run synchronously, then refresh
 
 **`src/dual_pane_browser/state.py`** - Pane state management:
-- `_PaneState`: Directory listing, cursor position, scroll offset, entry list
-- `_PaneEntry`: File/directory metadata (path, size, mode, timestamp, git status, is_executable, is_symlink, is_readonly)
+- `_PaneState`: Directory listing, cursor position, scroll offset, entry list, SSH connection
+- `_PaneEntry`: File/directory metadata (path, size, mode, timestamp, git status, is_executable, is_symlink, is_readonly, is_remote)
 - Entries sorted with directories first, then alphabetically
-- `refresh_entries(mode)` rebuilds entry list; attaches git status when `mode == BrowserMode.GIT`
+- `refresh_entries(mode)` rebuilds entry list; handles both local and remote directories
+- `_refresh_local_entries(mode)` for local filesystem operations
+- `_refresh_remote_entries(mode)` for SSH/SFTP operations
 - File attributes (executable, symlink, readonly) detected via stat() for color rendering
 - Cursor visibility managed by `ensure_cursor_visible(viewport_height)`
+- Remote path support: paths stored as strings for remote, Path objects for local
+
+**`src/dual_pane_browser/ssh_connection.py`** - SSH connection management:
+- `SSHConnection`: Manages SSH client and SFTP session using paramiko
+- Methods: `connect()`, `disconnect()`, `list_directory()`, `stat()`, `get_file()`, `put_file()`
+- Remote file operations: `remove()`, `rmdir()`, `rename()`, `mkdir()`, `open()`
+- Connection state tracking and validation
+- Automatic host key policy handling
 
 **`src/dual_pane_browser/modes.py`** - Browser mode enumeration:
 - `BrowserMode.FILE`: Shows standard file permissions in mode column
@@ -143,21 +175,26 @@ python -m pip install -r requirements.txt
 - Git mode colors: Red untracked, yellow modified, green staged, red deleted, cyan renamed, dim clean
 - Colors combine with curses attributes (e.g., A_BOLD, A_REVERSE for selection)
 
-**`src/dual_pane_browser/render.py`** - All curses rendering:
-- `render_browser()`: Top-level layout with dynamic sizing (splits terminal into top 2/3 browser panes, bottom 1/3 command/output)
+**`src/dual_pane_browser/render.py`** (~640 lines) - All curses rendering:
+- `render_browser()`: Top-level layout with dynamic sizing
+  - Allocates space for: browser panes (top), command console (middle), help hints (bottom 3 lines)
+  - Permanent help hints always visible at bottom
 - `render_browser_pane()`: Individual pane rendering with columns (Name, Mode/Git, Size, Modified)
+  - Displays connection status in pane title (user@host:path for remote)
   - Applies colors from `get_file_color()` or `get_git_color()` based on current mode
   - Combines colors with A_REVERSE attribute for cursor selection
 - `render_command_area()`: Delegates to specialized renderers based on browser state:
   - `render_confirmation_dialog()`: Y/N confirmation prompt
+  - `render_ssh_connect_input()`: SSH connection form (Host, User, Password with Tab navigation)
   - `render_rename_input()`: Rename input with cursor positioning
   - `render_create_input()`: File/directory creation input with cursor positioning
   - `render_mode_prompt()`: Mode selection overlay
   - `render_help_panel()`: Comprehensive help text overlay
   - Default: Command prompt, status line, and output buffer (last 200 lines)
+- `render_help_hints()`: Permanent compact help display at screen bottom (dimmed)
 - Uses Unicode box-drawing characters (┌─┐│└┘)
 - Dynamic column width calculation based on terminal size
-- Cursor visibility managed: shown during command/rename/create input, hidden otherwise
+- Cursor visibility managed: shown during command/rename/create/SSH input, hidden otherwise
 
 **`src/dual_pane_browser/help_text.py`** - Context-sensitive help hints:
 - `build_help_lines(mode)`: Returns compact hints (3 lines) appropriate for current mode
@@ -210,6 +247,26 @@ python -m pip install -r requirements.txt
 8. **External Process Handling**: Editor/pager invocations suspend curses (`curses.endwin()`), run synchronously, then restore terminal state with `_stdscr.refresh()`. Temp files cleaned up in finally blocks.
 
 9. **Constants**: Magic numbers extracted to module-level constants (e.g., `OUTPUT_BUFFER_MAX_LINES`, `PAGE_SCROLL_LINES`) for maintainability
+
+10. **SSH/Remote Operations**:
+   - Each pane can independently connect to a remote host via SSH
+   - `_PaneState.ssh_connection` holds optional SSHConnection instance
+   - `_PaneEntry.is_remote` flag distinguishes local from remote entries
+   - Remote paths stored as strings (POSIX), local paths as Path objects
+   - Directory listing adapts: uses `iterdir()` for local, SFTP `listdir_attr()` for remote
+   - Shell commands execute locally or remotely based on active pane state
+   - Mixed mode: left pane can be local while right pane browses remote host
+   - SSH connection uses paramiko with password or key-based authentication
+   - Connection details entered via modal dialog (Shift+S keybinding)
+
+11. **Universal File Operations (Local/Remote)**:
+   - All file operations (copy, move, delete, rename, create, view, edit) work seamlessly across local and remote
+   - Copy/move routing: Detects source and destination types, dispatches to appropriate handler
+   - Four copy paths: local→local (shutil), local→remote (SFTP put), remote→local (SFTP get), remote→remote (temp download+upload)
+   - Remote directory operations are recursive via SFTP list/get/put
+   - View/edit: Remote files downloaded to temp, operations performed locally, changes uploaded back (edit only if mtime changed)
+   - Delete: Remote directories deleted recursively by listing contents and removing files/subdirs depth-first
+   - Temp files: Used for remote view/edit and remote-to-remote copies, cleaned up in finally blocks
 
 ## Testing Approach
 

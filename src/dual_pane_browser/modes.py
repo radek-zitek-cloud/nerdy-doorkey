@@ -8,13 +8,19 @@ from enum import Enum
 class BrowserMode(Enum):
     FILE = "file"
     GIT = "git"
+    OWNER = "owner"
 
     @property
     def label(self) -> str:
-        return "File" if self is BrowserMode.FILE else "Git"
+        if self is BrowserMode.FILE:
+            return "File"
+        elif self is BrowserMode.GIT:
+            return "Git"
+        else:
+            return "Owner"
 
 
-ALL_MODES = [BrowserMode.FILE, BrowserMode.GIT]
+ALL_MODES = [BrowserMode.FILE, BrowserMode.GIT, BrowserMode.OWNER]
 
 
 __all__ = ["BrowserMode", "ALL_MODES"]

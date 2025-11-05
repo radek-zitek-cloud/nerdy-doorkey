@@ -5,6 +5,7 @@ from __future__ import annotations
 import curses
 import os
 import subprocess
+from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List
 
 from .modes import ALL_MODES
@@ -34,7 +35,7 @@ class InputHandlersMixin:
         if key_code in (curses.KEY_NPAGE,):
             pane.move_cursor(PAGE_SCROLL_LINES)
             return True
-        if key_code in (curses.KEY_RIGHT, ord("l"), ord("\t")):
+        if key_code in (curses.KEY_RIGHT, ord("\t")):
             self.active_index = 1
             return True
         if key_code in (curses.KEY_LEFT, curses.KEY_BTAB):
@@ -91,9 +92,17 @@ class InputHandlersMixin:
             except PermissionError as err:
                 self.status_message = str(err)
             return True
-        if key_code in (ord("s"), ord("S")):
+        if key_code == ord("s"):
             self._dismiss_overlays()
             self._refresh_active_pane()
+            return True
+        if key_code == ord("S"):
+            self._dismiss_overlays()
+            self._start_ssh_connect()
+            return True
+        if key_code in (ord("x"), ord("X")):
+            self._dismiss_overlays()
+            self._disconnect_ssh()
             return True
         if self._handle_mode_command(key_code):
             return True
@@ -281,35 +290,179 @@ class InputHandlersMixin:
         if not command:
             self.status_message = "No command entered."
             return
-        try:
-            result = subprocess.run(
-                command,
-                shell=True,
-                cwd=self._active_pane.current_dir,
-                capture_output=True,
-                text=True,
-                env=os.environ.copy(),
-            )
-        except OSError as err:
-            self.command_output = [f"Failed to run command: {err}"]
-            self.status_message = "Command execution failed."
+
+        # Handle local or remote command execution
+        pane = self._active_pane
+        if pane.is_remote and pane.ssh_connection:
+            # Execute command on remote host
+            try:
+                stdin, stdout, stderr = pane.ssh_connection.client.exec_command(
+                    f"cd {pane.current_dir} && {command}"
+                )
+                stdout_text = stdout.read().decode('utf-8', errors='replace')
+                stderr_text = stderr.read().decode('utf-8', errors='replace')
+                exit_code = stdout.channel.recv_exit_status()
+
+                output_lines: List[str] = []
+                if stdout_text:
+                    output_lines.extend(stdout_text.rstrip("\n").splitlines())
+                if stderr_text:
+                    if output_lines:
+                        output_lines.append("--- stderr ---")
+                    output_lines.extend(stderr_text.rstrip("\n").splitlines())
+
+                if not output_lines:
+                    output_lines = ["<no output>"]
+
+                from .browser import OUTPUT_BUFFER_MAX_LINES
+                self.command_output = output_lines[-OUTPUT_BUFFER_MAX_LINES:]
+                self.status_message = f"Remote command exited with code {exit_code}."
+            except Exception as err:
+                self.command_output = [f"Failed to run remote command: {err}"]
+                self.status_message = "Remote command execution failed."
+        else:
+            # Execute command locally
+            try:
+                result = subprocess.run(
+                    command,
+                    shell=True,
+                    cwd=pane.current_dir,
+                    capture_output=True,
+                    text=True,
+                    env=os.environ.copy(),
+                )
+            except OSError as err:
+                self.command_output = [f"Failed to run command: {err}"]
+                self.status_message = "Command execution failed."
+                return
+
+            output_lines: List[str] = []
+            if result.stdout:
+                output_lines.extend(result.stdout.rstrip("\n").splitlines())
+            if result.stderr:
+                if output_lines:
+                    output_lines.append("--- stderr ---")
+                output_lines.extend(result.stderr.rstrip("\n").splitlines())
+
+            if not output_lines:
+                output_lines = ["<no output>"]
+
+            # Bound output length to avoid overflowing the UI.
+            from .browser import OUTPUT_BUFFER_MAX_LINES
+            self.command_output = output_lines[-OUTPUT_BUFFER_MAX_LINES:]
+            self.status_message = f"Command exited with code {result.returncode}."
+
+    def _start_ssh_connect(self) -> None:
+        """Start SSH connection input mode."""
+        self.in_ssh_connect_mode = True
+        self.ssh_host_buffer = ""
+        self.ssh_user_buffer = os.getenv("USER", "user")
+        self.ssh_password_buffer = ""
+        self.ssh_input_field = 0
+        self.status_message = "Enter SSH connection details"
+
+    def _handle_ssh_connect_key(self, key_code: int) -> bool:
+        """Handle key presses during SSH connection setup."""
+        if key_code == curses.KEY_RESIZE:
+            return True
+        if key_code == 27:  # ESC
+            self.in_ssh_connect_mode = False
+            self.ssh_host_buffer = ""
+            self.ssh_user_buffer = ""
+            self.ssh_password_buffer = ""
+            self.ssh_input_field = 0
+            self.status_message = "SSH connection cancelled."
+            return True
+        if key_code in (curses.KEY_ENTER, ord("\n"), ord("\r")):
+            if self.ssh_input_field < 2:
+                # Move to next field
+                self.ssh_input_field += 1
+                return True
+            else:
+                # Final field - execute connection
+                self._execute_ssh_connect()
+                return True
+        if key_code == ord("\t"):
+            # Tab to next field
+            self.ssh_input_field = (self.ssh_input_field + 1) % 3
+            return True
+        if key_code in (curses.KEY_BACKSPACE, 127, 8):
+            if self.ssh_input_field == 0:
+                self.ssh_host_buffer = self.ssh_host_buffer[:-1]
+            elif self.ssh_input_field == 1:
+                self.ssh_user_buffer = self.ssh_user_buffer[:-1]
+            elif self.ssh_input_field == 2:
+                self.ssh_password_buffer = self.ssh_password_buffer[:-1]
+            return True
+        if 0 <= key_code <= 255 and chr(key_code).isprintable():
+            if self.ssh_input_field == 0:
+                self.ssh_host_buffer += chr(key_code)
+            elif self.ssh_input_field == 1:
+                self.ssh_user_buffer += chr(key_code)
+            elif self.ssh_input_field == 2:
+                self.ssh_password_buffer += chr(key_code)
+            return True
+        return False
+
+    def _execute_ssh_connect(self) -> None:
+        """Execute SSH connection."""
+        from .ssh_connection import SSHConnection
+
+        host = self.ssh_host_buffer.strip()
+        user = self.ssh_user_buffer.strip()
+        password = self.ssh_password_buffer if self.ssh_password_buffer else None
+
+        if not host:
+            self.status_message = "Host cannot be empty."
+            self.in_ssh_connect_mode = False
             return
 
-        output_lines: List[str] = []
-        if result.stdout:
-            output_lines.extend(result.stdout.rstrip("\n").splitlines())
-        if result.stderr:
-            if output_lines:
-                output_lines.append("--- stderr ---")
-            output_lines.extend(result.stderr.rstrip("\n").splitlines())
+        if not user:
+            user = os.getenv("USER", "user")
 
-        if not output_lines:
-            output_lines = ["<no output>"]
+        try:
+            # Create SSH connection
+            ssh_conn = SSHConnection(hostname=host, username=user)
 
-        # Bound output length to avoid overflowing the UI.
-        from .browser import OUTPUT_BUFFER_MAX_LINES
-        self.command_output = output_lines[-OUTPUT_BUFFER_MAX_LINES:]
-        self.status_message = f"Command exited with code {result.returncode}."
+            # Try to connect
+            ssh_conn.connect(password=password)
+
+            # Set the connection on active pane
+            pane = self._active_pane
+            pane.ssh_connection = ssh_conn
+            pane.current_dir = "/"
+            pane.cursor_index = 0
+            pane.scroll_offset = 0
+            pane.refresh_entries(self.mode)
+
+            self.status_message = f"Connected to {user}@{host}"
+        except Exception as err:
+            self.status_message = f"SSH connection failed: {err}"
+        finally:
+            self.in_ssh_connect_mode = False
+            self.ssh_host_buffer = ""
+            self.ssh_user_buffer = ""
+            self.ssh_password_buffer = ""
+            self.ssh_input_field = 0
+
+    def _disconnect_ssh(self) -> None:
+        """Disconnect SSH connection from active pane."""
+        pane = self._active_pane
+        if not pane.is_remote or not pane.ssh_connection:
+            self.status_message = "No SSH connection to disconnect."
+            return
+
+        try:
+            pane.ssh_connection.disconnect()
+            pane.ssh_connection = None
+            # Return to home directory
+            pane.current_dir = Path.home()
+            pane.cursor_index = 0
+            pane.scroll_offset = 0
+            pane.refresh_entries(self.mode)
+            self.status_message = "Disconnected from SSH."
+        except Exception as err:
+            self.status_message = f"Error disconnecting: {err}"
 
 
 __all__ = ["InputHandlersMixin"]

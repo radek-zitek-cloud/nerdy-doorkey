@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import curses
 from enum import IntEnum
+from pathlib import Path, PurePosixPath
 
 
 class ColorPair(IntEnum):
@@ -51,6 +52,21 @@ def init_colors() -> None:
     curses.init_pair(ColorPair.GIT_CLEAN, 8, -1)  # Dim
 
 
+def _get_filename(entry: "PaneEntry") -> str:  # type: ignore[name-defined]
+    """Get the filename from an entry, handling both local and remote paths.
+
+    Args:
+        entry: The pane entry
+
+    Returns:
+        The filename/basename
+    """
+    if entry.is_remote:
+        return PurePosixPath(str(entry.path)).name
+    else:
+        return Path(entry.path).name
+
+
 def get_file_color(entry: "PaneEntry") -> int:  # type: ignore[name-defined]
     """Get the appropriate color for a file entry in File mode.
 
@@ -76,7 +92,8 @@ def get_file_color(entry: "PaneEntry") -> int:  # type: ignore[name-defined]
         return curses.color_pair(ColorPair.SYMLINK)
 
     # Hidden files (dotfiles)
-    if entry.path.name.startswith('.'):
+    filename = _get_filename(entry)
+    if filename.startswith('.'):
         return curses.color_pair(ColorPair.HIDDEN)
 
     # Executables

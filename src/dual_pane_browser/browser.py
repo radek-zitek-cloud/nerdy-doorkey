@@ -57,6 +57,13 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         self.create_buffer: str = ""
         self.create_is_dir: bool = False
 
+        # SSH connection mode state
+        self.in_ssh_connect_mode: bool = False
+        self.ssh_host_buffer: str = ""
+        self.ssh_user_buffer: str = ""
+        self.ssh_password_buffer: str = ""
+        self.ssh_input_field: int = 0  # 0=host, 1=user, 2=password
+
     def browse(self) -> Tuple[Path, Path]:
         """Launch the UI and return the final directories."""
         try:
@@ -82,10 +89,25 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
             while True:
                 render_browser(self, stdscr)
                 key = stdscr.getch()
-                if key in (ord("q"), ord("Q")) and not self.in_command_mode and not self.pending_action:
+
+                # Check if we're in any modal input mode where 'q' should be treated as regular input
+                in_modal_input = (
+                    self.in_command_mode or
+                    self.pending_action or
+                    self.in_ssh_connect_mode or
+                    self.in_rename_mode or
+                    self.in_create_mode or
+                    self.in_mode_prompt
+                )
+
+                # Only quit if 'q' is pressed and we're not in any modal input mode
+                if key in (ord("q"), ord("Q")) and not in_modal_input:
                     break
+
                 if self.pending_action:
                     handled = self._handle_confirmation_key(key)
+                elif self.in_ssh_connect_mode:
+                    handled = self._handle_ssh_connect_key(key)
                 elif self.in_rename_mode:
                     handled = self._handle_rename_key(key)
                 elif self.in_create_mode:
@@ -101,7 +123,10 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         finally:
             self._stdscr = None
 
-        return self.left.current_dir, self.right.current_dir
+        # Convert to Path for return (remote connections return their local starting point)
+        left_dir = Path(self.left.current_dir) if not self.left.is_remote else Path.cwd()
+        right_dir = Path(self.right.current_dir) if not self.right.is_remote else Path.cwd()
+        return left_dir, right_dir
 
     def _dismiss_overlays(self) -> None:
         """Dismiss help and mode selection overlays."""
