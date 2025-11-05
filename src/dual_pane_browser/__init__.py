@@ -2,4 +2,5 @@
 
 from .browser import DualPaneBrowser, DualPaneBrowserError
 
-__all__ = ["DualPaneBrowser", "DualPaneBrowserError"]
+__version__ = "0.1.0"
+__all__ = ["DualPaneBrowser", "DualPaneBrowserError", "__version__"]

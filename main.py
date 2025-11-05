@@ -6,11 +6,19 @@ from pathlib import Path
 
 from src.dual_pane_browser import DualPaneBrowser, DualPaneBrowserError
 
+__version__ = "0.1.0"
+
 
 def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the browser."""
     parser = argparse.ArgumentParser(
         description="Browse two directories side-by-side in the terminal."
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {__version__}",
+        help="Show version number and exit.",
     )
     parser.add_argument(
         "left_directory",
@@ -29,11 +37,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     """Entry point for the dual-pane browser."""
+    args = parse_args()
+
     if not sys.stdout.isatty():
         print("The dual-pane browser requires an interactive terminal.")
         return 1
-
-    args = parse_args()
 
     left = Path(args.left_directory).expanduser()
     right = Path(args.right_directory).expanduser()
