@@ -68,6 +68,13 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 ## Version History
 
+- **v0.2.0** (2025-01-05): Configuration and session management
+  - TOML configuration file support
+  - SSH credential auto-save and auto-load
+  - Session persistence (save/restore directories)
+  - Keypress wait after external commands
+  - Color customization framework
+
 - **v0.1.0** (2025-01-05): Initial working release
   - Dual-pane file browser
   - SSH/remote support

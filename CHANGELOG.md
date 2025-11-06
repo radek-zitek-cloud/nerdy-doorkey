@@ -5,6 +5,64 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-01-05
+
+### Added
+
+#### Configuration System
+- **TOML configuration file** support (`~/.nedok.toml`)
+- Color customization for File and Git modes
+- Define custom colors for file types and git statuses
+- Example configuration file (`.nedok.toml.example`)
+- Framework for future configuration expansion
+
+#### SSH Credential Management
+- **Auto-save credentials** after successful SSH connection
+- **Auto-load credentials** when entering known hostname
+- Confirmation prompt to save credentials (y/n)
+- Credentials stored in `~/.nedok.toml` under `[ssh.credentials]`
+- Security warnings about plaintext password storage
+- Pre-populate username and password fields for saved hosts
+
+#### Session Persistence
+- **Auto-save directories** on exit to configuration file
+- **Auto-restore directories** when launching without arguments
+- Session state stored in `~/.nedok.toml` under `[session]`
+- Manual override by specifying directories as arguments
+- Seamless workflow: exit and restart to continue where you left off
+
+#### External Command Improvements
+- **Keypress wait** after external commands (pager, editor)
+- Display "Press any key to continue..." prompt
+- Prevents terminal content from being immediately overwritten
+- Applies to view (`v`), edit (`e`), and git operations (`g`, `l`, `b`)
+- Raw terminal input capture for single keypress
+
+#### Dependencies
+- Added `tomli` for TOML parsing (Python 3.11+ uses built-in `tomllib`)
+- Added `tomli-w` for TOML writing
+
+### Changed
+- Modified argument parsing to allow optional directories (default: load from config)
+- Enhanced `_run_external()` to include keypress wait
+- Updated help text for command-line arguments
+- Updated `.gitignore` to exclude `.nedok.toml` (contains credentials)
+
+### Documentation
+- Updated README.md with Configuration File section
+- Added Session Management documentation with examples
+- Updated COMMANDS.md with SSH credential workflow
+- Documented auto-save/auto-load behavior
+- Added security warnings for plaintext password storage
+- Updated `.nedok.toml.example` with all sections
+
+### Technical
+- New `config.py` module for configuration management
+- Config merging strategy (user config + defaults)
+- Graceful fallback if config file missing or corrupted
+- Session state tracking in browser instance
+- Terminal raw mode handling with `tty`/`termios`
+
 ## [0.1.0] - 2025-01-05
 
 ### 🎉 Initial Release
@@ -134,4 +192,5 @@ Security-related changes
 
 ---
 
+[0.2.0]: https://github.com/radek-zitek-cloud/nerdy-doorkey/releases/tag/v0.2.0
 [0.1.0]: https://github.com/radek-zitek-cloud/nerdy-doorkey/releases/tag/v0.1.0
