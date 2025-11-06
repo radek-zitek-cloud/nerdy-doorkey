@@ -4,9 +4,66 @@ from __future__ import annotations
 
 import os
 from pathlib import Path, PurePosixPath
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Callable
 import stat as stat_module
 import paramiko
+
+
+class InteractiveHostKeyPolicy(paramiko.MissingHostKeyPolicy):
+    """Custom host key policy that prompts user for unknown hosts.
+
+    This prevents automatic acceptance of unknown host keys, which could
+    be a sign of MITM attacks. Users must explicitly approve new hosts.
+    """
+
+    def __init__(self, confirm_callback: Optional[Callable[[str, str], bool]] = None):
+        """Initialize policy with optional confirmation callback.
+
+        Args:
+            confirm_callback: Function that takes (hostname, key_fingerprint)
+                            and returns True to accept, False to reject
+        """
+        self.confirm_callback = confirm_callback
+        self._pending_approval: Optional[Tuple[str, str]] = None
+
+    def missing_host_key(self, client, hostname, key):
+        """Called when an unknown host key is encountered.
+
+        Args:
+            client: SSH client
+            hostname: Host name
+            key: Host key
+
+        Raises:
+            paramiko.SSHException: If key is rejected
+        """
+        # Get key fingerprint
+        key_type = key.get_name()
+        key_fingerprint = key.get_fingerprint().hex()
+        formatted_fp = ":".join([key_fingerprint[i:i+2] for i in range(0, len(key_fingerprint), 2)])
+
+        # Store pending approval for later confirmation
+        self._pending_approval = (hostname, formatted_fp, key_type)
+
+        # Raise exception to pause connection - caller will handle confirmation
+        raise paramiko.SSHException(
+            f"Unknown host key for {hostname}\n"
+            f"Key type: {key_type}\n"
+            f"Fingerprint: {formatted_fp}\n"
+            f"Accept this key? (This will be prompted by the application)"
+        )
+
+    def get_pending_approval(self) -> Optional[Tuple[str, str, str]]:
+        """Get pending host key approval details.
+
+        Returns:
+            Tuple of (hostname, fingerprint, key_type) or None
+        """
+        return self._pending_approval
+
+    def clear_pending(self) -> None:
+        """Clear pending approval state."""
+        self._pending_approval = None
 
 
 class SSHConnection:
@@ -27,28 +84,50 @@ class SSHConnection:
         self.sftp: Optional[paramiko.SFTPClient] = None
         self._connected = False
 
-    def connect(self, password: Optional[str] = None, key_filename: Optional[str] = None) -> None:
+    def connect(self, password: Optional[str] = None, key_filename: Optional[str] = None,
+                use_agent: bool = True, auto_add_host_key: bool = False) -> None:
         """Establish SSH connection.
 
+        Authentication is attempted in the following order:
+        1. SSH agent keys (if use_agent=True, default)
+        2. Key file (if key_filename provided)
+        3. Password (if password provided)
+
         Args:
-            password: Password for authentication (optional)
+            password: Password for authentication (optional, last resort)
             key_filename: Path to private key file (optional)
+            use_agent: Try SSH agent authentication first (default: True)
+            auto_add_host_key: Automatically accept unknown host keys (default: False)
+                              WARNING: Setting this to True is insecure and not recommended
 
         Raises:
-            Exception: If connection fails
+            paramiko.SSHException: If connection fails or host key rejected
         """
         self.client = paramiko.SSHClient()
-        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        # Load system host keys from known_hosts
+        self.client.load_system_host_keys()
+
+        # Set host key policy
+        if auto_add_host_key:
+            # INSECURE: Automatically accept unknown hosts (backwards compatibility)
+            self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        else:
+            # SECURE: Require confirmation for unknown hosts
+            self.client.set_missing_host_key_policy(InteractiveHostKeyPolicy())
 
         connect_kwargs = {
             "hostname": self.hostname,
             "port": self.port,
             "username": self.username,
+            "allow_agent": use_agent,  # Try SSH agent keys first
+            "look_for_keys": True,     # Look for keys in ~/.ssh/
         }
 
+        # Add optional authentication methods
         if password:
             connect_kwargs["password"] = password
-        elif key_filename:
+        if key_filename:
             connect_kwargs["key_filename"] = key_filename
 
         self.client.connect(**connect_kwargs)
@@ -243,4 +322,4 @@ class SSHConnection:
         return f"SSHConnection({self.username}@{self.hostname}:{self.port}, connected={self.is_connected})"
 
 
-__all__ = ["SSHConnection"]
+__all__ = ["SSHConnection", "InteractiveHostKeyPolicy"]

@@ -64,6 +64,7 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         self.ssh_password_buffer: str = ""
         self.ssh_input_field: int = 0  # 0=host, 1=user, 2=password
         self.ssh_last_connection: Optional[Tuple[str, str, str]] = None  # (host, user, pass) for save prompt
+        self.ssh_pending_connection: Optional[Tuple[str, str, Optional[str]]] = None  # (host, user, pass) for host key approval
 
     def browse(self) -> Tuple[Path, Path]:
         """Launch the UI and return the final directories."""

@@ -216,11 +216,46 @@ python main.py
 python main.py /tmp /var/log
 ```
 
-### SSH Credentials
+### SSH Credentials & Security
+
+#### Authentication Methods
+
+Nerdy Doorkey tries authentication methods in the following secure order:
+1. **SSH Agent keys** (recommended) - Keys stored in memory, never on disk
+2. **Key files** from `~/.ssh/` - Automatically discovered
+3. **Password** (last resort) - Only if no keys available
+
+**🔐 Recommendation:** Use SSH agent (`ssh-agent`) with key-based authentication for maximum security.
+
+#### Host Key Verification
+
+For security, unknown host keys require confirmation before connecting:
+- **First connection**: You'll be prompted to accept the host key fingerprint
+- **MITM protection**: Prevents man-in-the-middle attacks
+- **Trust-on-first-use**: Accepted keys are stored in `~/.ssh/known_hosts`
+
+**⚠️  Always verify the fingerprint** before accepting an unknown host key!
+
+#### Credential Storage
 
 After connecting to an SSH host, you'll be prompted to save credentials:
 - **Automatic loading**: Enter a saved hostname to auto-populate username/password
-- **Security note**: Passwords stored in **plaintext** - use SSH keys for production!
+- **⚠️  Security Warning**: Passwords are stored in **PLAINTEXT** in `~/.nedok.toml`
+- **Best practice**: Only save username, use SSH agent for keys
+- **For production**: Set up key-based authentication with `ssh-keygen` and `ssh-add`
+
+**Example: Setting up SSH agent**
+```bash
+# Start SSH agent
+eval "$(ssh-agent -s)"
+
+# Add your SSH key
+ssh-add ~/.ssh/id_rsa
+
+# Now connect without password!
+python main.py
+# Press Ctrl+S to connect to SSH host
+```
 
 ### Environment Variables
 

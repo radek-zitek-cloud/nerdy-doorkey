@@ -23,18 +23,27 @@ clean = "gray_dim"            # Clean files (tracked, no changes)
 directory = "blue_bold"       # Directories (always blue in git mode)
 
 # SSH Credentials
-# WARNING: Passwords are stored in PLAINTEXT - use SSH keys for production!
+# ⚠️  SECURITY WARNING: Passwords are stored in PLAINTEXT - NOT SECURE!
+#
+# RECOMMENDED: Use SSH agent with key-based authentication instead:
+#   1. Generate SSH key: ssh-keygen -t rsa -b 4096
+#   2. Copy to server: ssh-copy-id user@host
+#   3. Start SSH agent: eval "$(ssh-agent -s)"
+#   4. Add key: ssh-add ~/.ssh/id_rsa
+#   5. Connect without password!
+#
 # This section is auto-populated when you save credentials after connecting
+# Best practice: Only save username, leave password empty, use SSH agent
 [ssh.credentials]
 # Format:
 # [ssh.credentials."hostname.example.com"]
 # username = "myuser"
-# password = "mypassword"  # PLAINTEXT - not secure!
+# password = "mypassword"  # ⚠️  PLAINTEXT - not secure!
 
-# Example:
+# Example (username only - secure):
 # [ssh.credentials."server.local"]
 # username = "admin"
-# password = "secret123"
+# # No password - will use SSH agent keys
 
 # Session State
 # Automatically saved when you exit the browser

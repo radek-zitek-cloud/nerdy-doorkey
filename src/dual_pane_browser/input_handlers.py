@@ -357,7 +357,7 @@ class InputHandlersMixin:
         self.ssh_user_buffer = os.getenv("USER", "user")
         self.ssh_password_buffer = ""
         self.ssh_input_field = 0
-        self.status_message = "Enter SSH connection details"
+        self.status_message = "SSH: Will try agent keys first, then password. 🔐 Use SSH agent for security!"
 
     def _handle_ssh_connect_key(self, key_code: int) -> bool:
         """Handle key presses during SSH connection setup."""
@@ -409,10 +409,15 @@ class InputHandlersMixin:
             return True
         return False
 
-    def _execute_ssh_connect(self) -> None:
-        """Execute SSH connection."""
+    def _execute_ssh_connect(self, auto_add_host_key: bool = False) -> None:
+        """Execute SSH connection.
+
+        Args:
+            auto_add_host_key: If True, automatically accept unknown host keys (after user confirmation)
+        """
         from .ssh_connection import SSHConnection
         from .config import get_ssh_credentials
+        import paramiko
 
         host = self.ssh_host_buffer.strip()
         user = self.ssh_user_buffer.strip()
@@ -430,8 +435,8 @@ class InputHandlersMixin:
             # Create SSH connection
             ssh_conn = SSHConnection(hostname=host, username=user)
 
-            # Try to connect
-            ssh_conn.connect(password=password)
+            # Try to connect (with or without host key auto-accept)
+            ssh_conn.connect(password=password, auto_add_host_key=auto_add_host_key)
 
             # Set the connection on active pane
             pane = self._active_pane
@@ -446,21 +451,39 @@ class InputHandlersMixin:
             # Check if credentials should be saved
             saved_creds = get_ssh_credentials(host)
             if not saved_creds or saved_creds.get("username") != user or saved_creds.get("password") != password:
-                # Offer to save credentials
+                # Offer to save credentials with security warning
                 self.ssh_last_connection = (host, user, password or "")
+                warning_msg = f"Save SSH credentials for {host}?"
+                if password:
+                    warning_msg += " ⚠️  WARNING: Password will be stored in PLAINTEXT!"
+                else:
+                    warning_msg += " (username only, use SSH agent for keys)"
                 self._request_confirmation(
-                    f"Save SSH credentials for {host}?",
+                    warning_msg,
                     self._save_ssh_credentials_confirmed
                 )
+        except paramiko.SSHException as err:
+            # Check if this is an unknown host key error
+            if "Unknown host key" in str(err):
+                # Store connection details and prompt for host key approval
+                self.ssh_pending_connection = (host, user, password)
+                self._request_confirmation(
+                    f"⚠️  Unknown host key for {host}! Accept and connect? (Check fingerprint first!)",
+                    self._approve_host_key_and_connect
+                )
+            else:
+                self.status_message = f"SSH connection failed: {err}"
+                self.ssh_last_connection = None
         except Exception as err:
             self.status_message = f"SSH connection failed: {err}"
             self.ssh_last_connection = None
         finally:
-            self.in_ssh_connect_mode = False
-            self.ssh_host_buffer = ""
-            self.ssh_user_buffer = ""
-            self.ssh_password_buffer = ""
-            self.ssh_input_field = 0
+            if not hasattr(self, 'ssh_pending_connection') or self.ssh_pending_connection is None:
+                self.in_ssh_connect_mode = False
+                self.ssh_host_buffer = ""
+                self.ssh_user_buffer = ""
+                self.ssh_password_buffer = ""
+                self.ssh_input_field = 0
 
     def _disconnect_ssh(self) -> None:
         """Disconnect SSH connection from active pane."""
@@ -496,7 +519,23 @@ class InputHandlersMixin:
                 self.ssh_user_buffer = creds["username"]
             if "password" in creds and not self.ssh_password_buffer:
                 self.ssh_password_buffer = creds["password"]
-            self.status_message = f"Loaded saved credentials for {host}"
+                self.status_message = f"⚠️  Loaded plaintext password for {host}. Consider using SSH agent!"
+            else:
+                self.status_message = f"Loaded saved username for {host}"
+
+    def _approve_host_key_and_connect(self) -> None:
+        """Retry SSH connection after user approves unknown host key."""
+        if not hasattr(self, 'ssh_pending_connection') or not self.ssh_pending_connection:
+            return
+
+        host, user, password = self.ssh_pending_connection
+        self.ssh_pending_connection = None
+
+        # Restore connection buffers and retry with auto_add_host_key=True
+        self.ssh_host_buffer = host
+        self.ssh_user_buffer = user
+        self.ssh_password_buffer = password or ""
+        self._execute_ssh_connect(auto_add_host_key=True)
 
     def _save_ssh_credentials_confirmed(self) -> None:
         """Save SSH credentials after user confirms."""
@@ -508,7 +547,10 @@ class InputHandlersMixin:
         host, user, password = self.ssh_last_connection
         save_ssh_credentials(host, user, password if password else None)
         self.ssh_last_connection = None
-        self.status_message = f"Saved credentials for {host}"
+        if password:
+            self.status_message = f"⚠️  Saved credentials for {host} (password in plaintext!)"
+        else:
+            self.status_message = f"Saved username for {host}"
 
 
 __all__ = ["InputHandlersMixin"]
