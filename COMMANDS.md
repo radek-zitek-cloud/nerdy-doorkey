@@ -396,6 +396,6 @@ Other:          :cmd  m)ode  h)elp  q)uit
 
 ## See Also
 
-- `CLAUDE.md` - Architecture and development documentation
+- `ARCHITECTURE.md` - Architecture and development documentation
 - `README.md` - Project overview and installation
 - `src/nedok/cli.py` - Entry point and CLI arguments

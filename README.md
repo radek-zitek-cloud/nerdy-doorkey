@@ -142,12 +142,12 @@ When you leave the host field, Nerdy Doorkey automatically checks for saved cred
 
 - Press **h** to toggle help overlay with all commands
 - See [COMMANDS.md](COMMANDS.md) for complete command reference
-- See [CLAUDE.md](CLAUDE.md) for architecture documentation
+- See [ARCHITECTURE.md](ARCHITECTURE.md) for architecture documentation
 
 ## Documentation
 
 - **[COMMANDS.md](COMMANDS.md)**: Complete command reference with examples
-- **[CLAUDE.md](CLAUDE.md)**: Architecture and development documentation
+- **[ARCHITECTURE.md](ARCHITECTURE.md)**: Architecture and development documentation
 - **[AGENTS.md](AGENTS.md)**: AI agent documentation
 
 ## Keyboard Shortcuts
@@ -304,23 +304,33 @@ poetry run python -m pytest -q
 
 ```
 nerdy-doorkey/
-├── src/nedok/cli.py                  # Entry point (python -m src.nedok.cli)
+├── src/nedok/cli.py                  # Entry point (python -m src.nedok.cli) - 182 lines
 ├── src/nedok/
-│   ├── browser.py                    # Core browser orchestration
-│   ├── input_handlers.py            # Keyboard input handling
-│   ├── file_operations.py           # File operation methods
-│   ├── git_operations.py            # Git operation methods
-│   ├── ssh_connection.py            # SSH/SFTP connection wrapper
-│   ├── state.py                     # Pane state and entry models
-│   ├── modes.py                     # Display mode definitions
-│   ├── render.py                    # Main rendering logic
-│   ├── render_dialogs.py            # Modal dialog rendering
-│   ├── render_utils.py              # Rendering utilities
-│   ├── colors.py                    # Color management
-│   ├── git_status.py                # Git status collection
-│   ├── help_text.py                 # Help text generation
-│   └── formatting.py                # Display formatting
-└── tests/                            # Test suite
+│   ├── browser.py                    # Core browser orchestration - 280 lines
+│   ├── input_handlers.py            # Keyboard input handling - 674 lines
+│   ├── file_operations.py           # File operation methods - 527 lines
+│   ├── git_operations.py            # Git operation methods - 378 lines
+│   ├── ssh_connection.py            # SSH/SFTP connection wrapper - 325 lines
+│   ├── state.py                     # Pane state and entry models - 404 lines
+│   ├── modes.py                     # Display mode definitions (File/Git/Owner) - 26 lines
+│   ├── config.py                    # Configuration file management - 231 lines
+│   ├── render.py                    # Main rendering logic - 369 lines
+│   ├── render_dialogs.py            # Modal dialog rendering - 283 lines
+│   ├── render_utils.py              # Rendering utilities - 138 lines
+│   ├── colors.py                    # Color management - 158 lines
+│   ├── git_status.py                # Git status collection - 68 lines
+│   ├── help_text.py                 # Help text generation - 18 lines
+│   └── formatting.py                # Display formatting - 28 lines
+├── tests/                            # Test suite (pytest)
+│   ├── test_browser_git_operations.py
+│   ├── test_config.py
+│   ├── test_formatting.py
+│   ├── test_git_status.py
+│   ├── test_help_text.py
+│   ├── test_main.py
+│   └── test_new_features.py
+├── .nedok.toml.example              # Example configuration file
+└── pyproject.toml                    # Poetry configuration
 ```
 
 ### Architecture
@@ -332,7 +342,7 @@ The project uses a **mixin-based architecture** for clean separation of concerns
 - **`FileOperationsMixin`**: All file operations
 - **`GitOperationsMixin`**: All git operations
 
-See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation.
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture documentation.
 
 ## Contributing
 
