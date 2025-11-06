@@ -68,6 +68,12 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 ## Version History
 
+- **v0.4.2** (2025-11-06): Build system fixes
+  - Fixed GitHub Actions workflow to use nedok.spec file
+  - Fixed PyInstaller builds to handle absolute imports correctly
+  - Fixed build.sh typos and updated to use spec file
+  - Workflow trigger verified for v* tags
+
 - **v0.4.1** (2025-11-06): Absolute imports and tooling improvements
   - Converted all relative imports to absolute nedok.* imports
   - Python version constraint updated (>=3.8,<3.15)

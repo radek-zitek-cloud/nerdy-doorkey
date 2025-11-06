@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2025-11-06
+
+### Fixed
+- **GitHub Actions workflow** – Fixed PyInstaller build process to use nedok.spec file
+  - Ensures pathex=['src'] is properly used for absolute imports
+  - Builds now use `pyinstaller --clean nedok.spec` instead of command-line args
+  - Fixes binary build failures that would occur with absolute imports
+- **Build script** – Fixed typos and updated to use spec file consistently
+  - Fixed "Buildingnedok" → "Building nedok"
+  - Fixed "dis/tnedok" → "dist/nedok"
+  - Updated to use nedok.spec file for reliable builds
+
+### Technical
+- Binary builds now correctly handle nedok.* absolute imports
+- Workflow trigger verified: runs on any v* tag push
+- Manual testing available via workflow_dispatch
+
 ## [0.4.1] - 2025-11-06
 
 ### Changed

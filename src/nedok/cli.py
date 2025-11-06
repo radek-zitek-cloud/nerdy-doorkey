@@ -7,7 +7,7 @@ from pathlib import Path
 from nedok import DualPaneBrowser, DualPaneBrowserError
 from nedok.config import get_last_session, save_session
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 
 def parse_args() -> argparse.Namespace:
