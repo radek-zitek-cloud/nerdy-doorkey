@@ -1,4 +1,4 @@
-"""Formatting helpers for file metadata."""
+"""Small helpers that turn raw file metadata into readable text."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from datetime import datetime
 
 
 def format_size(size: int) -> str:
-    """Convert a byte size to a short human-readable string."""
+    """Convert a byte count into a friendly string such as ``12.4K``."""
     units = ["B", "K", "M", "G", "T", "P", "E", "Z", "Y"]
     value = float(size)
     index = 0

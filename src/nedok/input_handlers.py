@@ -1,4 +1,4 @@
-"""Input handling methods for the dual pane browser."""
+"""Keyboard shortcuts, arranged as self-contained handler methods."""
 
 from __future__ import annotations
 
@@ -59,7 +59,12 @@ class _AvailableSSHCredentials:
 
 
 class InputHandlersMixin:
-    """Mixin providing all keyboard input handlers."""
+    """Mixin providing all keyboard input handlers.
+
+    Every ``_handle_*`` method returns ``True`` when it has consumed the key so
+    the caller can stop searching for other handlers.  The mixin does not know
+    anything about the terminal – it simply manipulates high-level browser state.
+    """
 
     def _handle_navigation_key(self, key_code: int) -> bool:
         """Handle navigation keys while not in command mode."""

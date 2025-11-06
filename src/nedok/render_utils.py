@@ -1,4 +1,9 @@
-"""Utility functions for rendering."""
+"""Small helpers that draw reusable pieces of the terminal UI.
+
+The functions in here work entirely in character cells – there are no hidden
+dependencies on the rest of the code base – so they are easy places for new
+contributors to experiment with :mod:`curses`.
+"""
 
 from __future__ import annotations
 
@@ -58,7 +63,7 @@ def draw_frame(
     width: int,
     attr: int = curses.A_NORMAL,
 ) -> None:
-    """Draw a rectangular ASCII frame."""
+    """Draw a rectangular frame using box-drawing characters."""
     if height < 2 or width < 2:
         return
 
@@ -92,7 +97,7 @@ def draw_frame_title(
     title: str,
     attr: int = curses.A_BOLD,
 ) -> None:
-    """Overlay a title along the top border of a frame."""
+    """Overlay a title string along the top border of a frame."""
     available = max(width - 2, 0)
     if available <= 0:
         return

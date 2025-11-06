@@ -1,4 +1,4 @@
-"""Helpers for integrating git status information."""
+"""Minimal wrappers around the ``git`` command line client."""
 
 from __future__ import annotations
 
@@ -8,7 +8,13 @@ from typing import Dict, Tuple
 
 
 def collect_git_status(directory: Path) -> Tuple[Path | None, Dict[Path, str]]:
-    """Return (repo_root, status_map) for files under `directory`."""
+    """Return ``(repository_root, status_map)`` for the given directory.
+
+    ``status_map`` is a dictionary where each key is an absolute path inside the
+    repository and each value is the two-character porcelain status code (e.g.
+    ``"??"`` for untracked files).  When ``directory`` is not part of a Git
+    repository we return ``(None, {})``.
+    """
     try:
         root_result = subprocess.run(
             ["git", "-C", str(directory), "rev-parse", "--show-toplevel"],

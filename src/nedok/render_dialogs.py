@@ -1,4 +1,8 @@
-"""Modal dialog rendering for the dual pane browser."""
+"""Draw the small pop-up panels used throughout the interface.
+
+These helpers keep all dialog styling in one place so changes – for example,
+centering text or honouring user-defined colours – are applied consistently.
+"""
 
 from __future__ import annotations
 

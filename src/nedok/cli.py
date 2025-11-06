@@ -1,3 +1,15 @@
+"""Command-line entry point for Nerdy Doorkey.
+
+This module is intentionally documented in plain language so that someone new to
+Python can trace what happens when the program starts.  It provides a small
+wrapper around the :class:`nedok.browser.DualPaneBrowser` user interface:
+
+1. Read command line arguments or previously saved session details.
+2. Check that the requested directories really exist.
+3. Launch the interactive dual-pane browser.
+4. Save where the user ended up, or log any crash information.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -16,14 +28,21 @@ CRASH_LOG_FILE = Path.home() / "nedok.crash.txt"
 
 
 def validate_directory(path: Path, name: str) -> Path:
-    """Validate that a directory exists and is accessible.
+    """Check that a path exists and points to a directory the program can use.
+
+    The browser always needs a real folder to open.  When the user provides a
+    bad path (for example, a typo or a file instead of a folder) we keep the
+    application running by falling back to the current working directory and
+    printing a friendly warning.
 
     Args:
-        path: Path to validate
-        name: Name of the directory (for error messages, e.g., "left pane")
+        path: Candidate path supplied by the user or the saved session.
+        name: Human-readable description used in warning messages, e.g.
+            ``"left pane"`` or ``"right pane (from session)"``.
 
     Returns:
-        The validated path, or current directory if invalid
+        A usable :class:`pathlib.Path`.  The original path is returned when it
+        checks out; otherwise ``Path.cwd()`` is used as a safe default.
     """
     try:
         resolved = path.resolve()
@@ -44,9 +63,11 @@ def validate_directory(path: Path, name: str) -> Path:
 
 
 def write_crash_log(exception: BaseException) -> None:
-    """Write crash information to a log file.
+    """Append a detailed crash report to :data:`CRASH_LOG_FILE`.
 
-    This is a last-resort handler for uncaught exceptions.
+    This function only runs when something has gone very wrong.  We collect the
+    time, Python version, and a full traceback so that a developer can reproduce
+    the problem later.
     """
     try:
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -71,7 +92,7 @@ Traceback:
 
         print(f"\n❌ Nedok crashed unexpectedly!", file=sys.stderr)
         print(f"   Crash details saved to: {CRASH_LOG_FILE}", file=sys.stderr)
-        print(f"   Please report this issue with the crash log.", file=sys.stderr)
+        print("   Please report this issue with the crash log.", file=sys.stderr)
     except Exception:
         # If we can't even write the crash log, just print to stderr
         print(f"\n❌ Nedok crashed and could not write crash log!", file=sys.stderr)
@@ -79,7 +100,13 @@ Traceback:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments for the browser."""
+    """Turn the command-line text (``sys.argv``) into structured information.
+
+    ``argparse`` handles the tedious work of recognising optional switches and
+    positional arguments.  We keep the accepted arguments simple so that new
+    users can experiment easily: zero, one, or two directory paths plus a
+    ``--version`` flag.
+    """
     parser = argparse.ArgumentParser(
         description="Browse two directories side-by-side in the terminal."
     )
@@ -105,39 +132,57 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    """Entry point for the dual-pane browser."""
+    """Launch the dual-pane browser and manage session persistence.
+
+    The body of this function is written in distinct stages with extensive
+    comments.  The aim is to make it obvious how user input flows into the
+    application and how we gracefully handle any problems along the way.
+    """
     try:
+        # 1) Collect command line choices (if any).
         args = parse_args()
 
+        # The user interface uses the terminal directly.  When stdout is not a
+        # terminal (for example, when someone runs ``python cli.py > log.txt``),
+        # the curses UI would fail.  We detect that early and exit with a short
+        # explanation.
         if not sys.stdout.isatty():
             print("The dual-pane browser requires an interactive terminal.")
             return 1
 
-        # Load directories and SSH sessions from arguments or saved session
+        # Default to no SSH information; the values will be filled either from
+        # the saved session or by the user during the run.
         left_ssh = None
         right_ssh = None
 
+        # 2) Decide which directories to open.
         if args.left_directory is None and args.right_directory is None:
-            # No directories specified - load from config (including SSH sessions)
+            # No directories were provided, so reuse the last session that was
+            # saved when the program exited.  This includes SSH metadata if the
+            # previous session was remote.
             session = get_last_session()
             left = Path(session["left_directory"]).expanduser()
             right = Path(session["right_directory"]).expanduser()
             left_ssh = session.get("left_ssh")
             right_ssh = session.get("right_ssh")
 
-            # Validate session directories exist
+            # Guard against the saved directories being deleted or renamed while
+            # the application was not running.
             left = validate_directory(left, "left pane (from session)")
             right = validate_directory(right, "right pane (from session)")
         else:
-            # Use provided directories (or current if only one provided)
+            # The user supplied one or both directories explicitly.  Missing
+            # values fall back to the current directory (``"."``).
             left = Path(args.left_directory or ".").expanduser()
             right = Path(args.right_directory or ".").expanduser()
-            # Don't load SSH sessions when directories explicitly provided
+            # When directories are given manually we ignore saved SSH sessions
+            # to avoid surprising side-effects.
 
-            # Validate provided directories
+            # Ensure the paths really exist before launching the UI.
             left = validate_directory(left, "left pane")
             right = validate_directory(right, "right pane")
 
+        # 3) Create the interactive browser and optionally reconnect SSH panes.
         browser = DualPaneBrowser(left, right)
 
         # Attempt to auto-reconnect SSH sessions if available
@@ -148,13 +193,15 @@ def main() -> int:
             if right_connected:
                 print(f"✓ Reconnected right pane to {right_ssh['username']}@{right_ssh['hostname']}")
             if left_ssh and not left_connected:
-                print(f"⚠  Could not reconnect left pane (using local directory)")
+                print("⚠  Could not reconnect left pane (using local directory)")
             if right_ssh and not right_connected:
-                print(f"⚠  Could not reconnect right pane (using local directory)")
+                print("⚠  Could not reconnect right pane (using local directory)")
 
+        # 4) Launch the curses user interface.  Control returns here when the
+        # user quits the program.
         final_left, final_right, final_left_ssh, final_right_ssh = browser.browse()
 
-        # Save final session state (directories + SSH connections) to config
+        # 5) Persist the ending state so the next run can resume effortlessly.
         save_session(str(final_left), str(final_right), final_left_ssh, final_right_ssh)
 
         print(f"Final left pane directory: {final_left}")

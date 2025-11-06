@@ -1,4 +1,4 @@
-"""Browser mode definitions."""
+"""Enumerations that describe alternate column layouts for the UI."""
 
 from __future__ import annotations
 

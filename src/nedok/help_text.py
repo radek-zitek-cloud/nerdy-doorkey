@@ -1,4 +1,4 @@
-"""Build help content for the command pane."""
+"""Generate the short help strings shown at the bottom of the screen."""
 
 from __future__ import annotations
 
