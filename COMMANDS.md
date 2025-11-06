@@ -6,7 +6,7 @@ Complete documentation of all commands, keybindings, git status symbols, and col
 
 - **Launch:** `python -m src.nedok.cli [left_dir] [right_dir]`
 - **Help:** Press `h` to toggle help overlay
-- **Mode Switch:** Press `m` to switch between File and Git modes
+- **Mode Switch:** Press `m` to switch between File, Tree, Git, and Owner modes
 - **Quit:** Press `q` to exit
 
 ## Navigation Commands
@@ -22,6 +22,16 @@ Complete documentation of all commands, keybindings, git status symbols, and col
 | `Tab` | Toggle between left/right pane |
 | `→` | Switch to right pane |
 | `←` / `Shift+Tab` | Switch to left pane |
+
+### Tree Navigation (Left Pane)
+
+Tree mode renders only the left pane as a recursive directory tree.
+
+| Key | Action |
+|-----|--------|
+| `m` then `t` | Switch to Tree mode |
+| `+` | Expand the selected directory in the tree |
+| `-` | Collapse the selected directory, or the parent of a selected file |
 
 ## File Operations (Available in All Modes)
 
@@ -59,6 +69,7 @@ Complete documentation of all commands, keybindings, git status symbols, and col
 |-----|------|-------------|
 | `m` | All | Open mode selection prompt |
 | `f` | Prompt | Switch to File mode (shows size and modification time) |
+| `t` | Prompt | Switch to Tree mode (left pane recursive tree, +/- to expand/collapse) |
 | `g` | Prompt | Switch to Git mode (shows git status) |
 | `o` | Prompt | Switch to Owner mode (shows user:group ownership) |
 

@@ -6,6 +6,7 @@ import curses
 from enum import IntEnum
 from pathlib import Path, PurePosixPath
 
+from nedok.config import get_dialog_colors
 
 class ColorPair(IntEnum):
     """Color pair constants for curses."""
@@ -23,6 +24,20 @@ class ColorPair(IntEnum):
     GIT_DELETED = 13
     GIT_RENAMED = 14
     GIT_CLEAN = 15
+    DIALOG = 20
+
+
+COLOR_NAME_TO_CURSES = {
+    "black": curses.COLOR_BLACK,
+    "red": curses.COLOR_RED,
+    "green": curses.COLOR_GREEN,
+    "yellow": curses.COLOR_YELLOW,
+    "blue": curses.COLOR_BLUE,
+    "magenta": curses.COLOR_MAGENTA,
+    "cyan": curses.COLOR_CYAN,
+    "white": curses.COLOR_WHITE,
+    "default": -1,
+}
 
 
 def init_colors() -> None:
@@ -50,6 +65,12 @@ def init_colors() -> None:
     curses.init_pair(ColorPair.GIT_DELETED, curses.COLOR_RED, -1)
     curses.init_pair(ColorPair.GIT_RENAMED, curses.COLOR_CYAN, -1)
     curses.init_pair(ColorPair.GIT_CLEAN, 8, -1)  # Dim
+    dialog_colors = get_dialog_colors()
+    fg_name = dialog_colors.get("foreground", "black").lower()
+    bg_name = dialog_colors.get("background", "cyan").lower()
+    fg = COLOR_NAME_TO_CURSES.get(fg_name, curses.COLOR_BLACK)
+    bg = COLOR_NAME_TO_CURSES.get(bg_name, curses.COLOR_CYAN)
+    curses.init_pair(ColorPair.DIALOG, fg, bg)
 
 
 def _get_filename(entry: "PaneEntry") -> str:  # type: ignore[name-defined]

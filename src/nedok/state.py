@@ -204,7 +204,15 @@ class _PaneState:
 
         items: List[_PaneEntry] = []
 
+        visited_dirs: Set[Path] = set()
+
         def add_children(directory: Path, depth: int) -> None:
+            normalized_dir = self._normalize_tree_path(directory)
+            if normalized_dir is not None:
+                if normalized_dir in visited_dirs:
+                    return
+                visited_dirs.add(normalized_dir)
+
             try:
                 children = sorted(directory.iterdir(), key=self._sort_key)
             except (PermissionError, FileNotFoundError, NotADirectoryError, OSError):
@@ -220,10 +228,11 @@ class _PaneState:
                     if normalized_child is not None
                     else False
                 )
-                entry.tree_is_collapsed = entry.is_dir and is_collapsed
-                entry.tree_is_expanded = entry.is_dir and not is_collapsed
+                can_expand = entry.is_dir and not entry.is_symlink
+                entry.tree_is_collapsed = can_expand and is_collapsed
+                entry.tree_is_expanded = can_expand and not is_collapsed
                 items.append(entry)
-                if entry.is_dir and not is_collapsed:
+                if can_expand and not is_collapsed:
                     add_children(child, depth + 1)
 
         add_children(root, 0)
@@ -236,7 +245,8 @@ class _PaneState:
         """Return a resolved version of `path` when possible."""
         try:
             return path.resolve()
-        except OSError:
+        except (OSError, RuntimeError):
+            # RuntimeError can occur for deeply nested or cyclic symlinks
             return path
 
     def _prune_tree_state(self, root: Path) -> None:

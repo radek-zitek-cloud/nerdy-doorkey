@@ -5,9 +5,10 @@ from __future__ import annotations
 import curses
 from typing import Optional, Tuple, TYPE_CHECKING
 
+from nedok.colors import ColorPair
 from nedok.help_text import build_help_lines
 from nedok.modes import ALL_MODES
-from nedok.render_utils import draw_frame, draw_frame_title, truncate_end
+from nedok.render_utils import draw_frame, draw_frame_title, truncate, truncate_end
 
 if TYPE_CHECKING:
     from nedok.browser import DualPaneBrowser
@@ -16,38 +17,55 @@ if TYPE_CHECKING:
 def render_mode_prompt(
     browser: "DualPaneBrowser",
     stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
-    origin_y: int,
-    origin_x: int,
-    height: int,
-    width: int,
-) -> Optional[Tuple[int, int]]:
-    """Render mode selection overlay."""
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, "Select Mode")
-    interior_width = max(width - 2, 0)
-    interior_height = max(height - 2, 0)
-    if interior_width <= 0 or interior_height <= 0:
-        return None
-
-    prompt_x = origin_x + 1
-    y = origin_y + 1
-    lines = [
+    screen_height: int,
+    screen_width: int,
+) -> None:
+    """Render mode selection overlay with the dialog color scheme."""
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    content_lines = [
+        "",
         f"Current: {browser.mode.label} mode",
-        "Choose new mode:",
-        "  [F] File mode",
-        "  [G] Git mode",
-        "  [O] Owner mode",
-        "Press Esc to cancel.",
+        "",
+        "[f] File mode",
+        "[t] Tree mode",
+        "[g] Git mode",
+        "[o] Owner mode",
+        "",
+        "Esc to cancel",
     ]
 
-    for index, line in enumerate(lines):
-        if index >= interior_height:
-            break
+    max_content_width = max(len(line) for line in content_lines)
+    box_width = min(max_content_width + 4, max(screen_width - 2, 12))
+    box_height = min(len(content_lines) + 4, max(screen_height - 2, 6))
+
+    origin_y = max((screen_height - box_height) // 2, 0)
+    origin_x = max((screen_width - box_width) // 2, 0)
+
+    draw_frame(stdscr, origin_y, origin_x, box_height, box_width, color_attr)
+    draw_frame_title(
+        stdscr,
+        origin_y,
+        origin_x,
+        box_width,
+        "Select Mode",
+        color_attr | curses.A_BOLD,
+    )
+
+    interior_width = max(box_width - 2, 0)
+    interior_height = max(box_height - 2, 0)
+    start_y = origin_y + 1
+
+    for index in range(interior_height):
+        line = content_lines[index] if index < len(content_lines) else ""
+        attr = color_attr | (curses.A_BOLD if index == 0 else curses.A_NORMAL)
+        truncated = truncate(line, interior_width)
+        centered = truncated.center(interior_width)
         stdscr.addnstr(
-            y + index,
-            prompt_x,
-            truncate_end(line, interior_width).ljust(interior_width),
+            start_y + index,
+            origin_x + 1,
+            centered,
             interior_width,
+            attr,
         )
     return None
 
@@ -83,48 +101,58 @@ def render_help_panel(
     return None
 
 
-def render_confirmation_dialog(
+def render_confirmation_overlay(
     browser: "DualPaneBrowser",
     stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
-    origin_y: int,
-    origin_x: int,
-    height: int,
-    width: int,
-) -> Optional[Tuple[int, int]]:
-    """Render a confirmation dialog."""
+    screen_height: int,
+    screen_width: int,
+) -> None:
+    """Render a centered colorful confirmation popup."""
     if browser.pending_action is None:
-        return None
-
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, "Confirm Action")
-    interior_width = max(width - 2, 0)
-    interior_height = max(height - 2, 0)
-    if interior_width <= 0 or interior_height <= 0:
-        return None
+        return
 
     message, _ = browser.pending_action
-    prompt_x = origin_x + 1
-    y = origin_y + 1
+    color_attr = curses.color_pair(ColorPair.DIALOG)
 
-    lines = [
+    content_lines = [
+        "",
         message,
         "",
-        "Press [Y]es to confirm or [N]o/Esc to cancel.",
+        "[Y] confirm    [N]/Esc cancel",
     ]
 
-    for index, line in enumerate(lines):
-        if index >= interior_height:
-            break
-        attrs = curses.A_BOLD if index == 0 else curses.A_NORMAL
-        stdscr.addnstr(
-            y + index,
-            prompt_x,
-            truncate_end(line, interior_width).ljust(interior_width),
-            interior_width,
-            attrs,
-        )
+    max_content_width = max(len(line) for line in content_lines)
+    box_width = min(max_content_width + 4, max(screen_width - 2, 10))
+    box_height = min(len(content_lines) + 4, max(screen_height - 2, 5))
 
-    return None
+    origin_y = max((screen_height - box_height) // 2, 0)
+    origin_x = max((screen_width - box_width) // 2, 0)
+
+    draw_frame(stdscr, origin_y, origin_x, box_height, box_width, color_attr)
+    draw_frame_title(
+        stdscr,
+        origin_y,
+        origin_x,
+        box_width,
+        "Confirm Action",
+        color_attr | curses.A_BOLD,
+    )
+
+    interior_width = max(box_width - 2, 0)
+    interior_height = max(box_height - 2, 0)
+
+    for index in range(interior_height):
+        line = content_lines[index] if index < len(content_lines) else ""
+        attr = color_attr | (curses.A_BOLD if index == 0 else curses.A_NORMAL)
+        truncated = truncate(line, interior_width)
+        centered = truncated.center(interior_width)
+        stdscr.addnstr(
+            origin_y + 1 + index,
+            origin_x + 1,
+            centered,
+            interior_width,
+            attr,
+        )
 
 
 def render_rename_input(
@@ -276,7 +304,7 @@ def render_ssh_connect_input(
 __all__ = [
     "render_mode_prompt",
     "render_help_panel",
-    "render_confirmation_dialog",
+    "render_confirmation_overlay",
     "render_rename_input",
     "render_create_input",
     "render_ssh_connect_input",

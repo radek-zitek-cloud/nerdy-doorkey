@@ -233,3 +233,65 @@ def test_refresh_active_pane(tmp_path: Path) -> None:
     assert len(browser.left.entries) == initial_count + 1
     assert any(entry.path == new_file for entry in browser.left.entries)
     assert "Refreshed" in browser.status_message
+
+
+def _select_path_in_pane(browser: DualPaneBrowser, pane: str, target: Path) -> None:
+    pane_state = browser.left if pane == "left" else browser.right
+    pane_state.refresh_entries(BrowserMode.FILE)
+    for idx, entry in enumerate(pane_state.entries):
+        if entry.path == target:
+            pane_state.cursor_index = idx
+            return
+    raise AssertionError(f"{target} not found in {pane} pane entries")
+
+
+def test_copy_prompts_before_overwrite(tmp_path: Path) -> None:
+    src_dir = tmp_path / "src"
+    dst_dir = tmp_path / "dst"
+    src_dir.mkdir()
+    dst_dir.mkdir()
+
+    source_file = src_dir / "file.txt"
+    source_file.write_text("source", encoding="utf-8")
+    dest_file = dst_dir / "file.txt"
+    dest_file.write_text("old", encoding="utf-8")
+
+    browser = DualPaneBrowser(src_dir, dst_dir)
+    browser.left.refresh_entries(BrowserMode.FILE)
+    browser.right.refresh_entries(BrowserMode.FILE)
+
+    _select_path_in_pane(browser, "left", source_file)
+    browser._copy_entry()
+
+    assert browser.pending_action is not None
+    assert "overwrite" in browser.pending_action.message.lower()
+
+    browser._handle_confirmation_key(ord("y"))
+    assert browser.pending_action is None
+    assert dest_file.read_text(encoding="utf-8") == "source"
+
+
+def test_move_overwrite_confirmation(tmp_path: Path) -> None:
+    src_dir = tmp_path / "src"
+    dst_dir = tmp_path / "dst"
+    src_dir.mkdir()
+    dst_dir.mkdir()
+
+    source_file = src_dir / "item.txt"
+    source_file.write_text("payload", encoding="utf-8")
+    dest_file = dst_dir / "item.txt"
+    dest_file.write_text("old", encoding="utf-8")
+
+    browser = DualPaneBrowser(src_dir, dst_dir)
+    browser.left.refresh_entries(BrowserMode.FILE)
+    browser.right.refresh_entries(BrowserMode.FILE)
+
+    _select_path_in_pane(browser, "left", source_file)
+    browser._move_entry()
+
+    assert browser.pending_action is not None
+    browser._handle_confirmation_key(ord("y"))
+
+    assert browser.pending_action is None
+    assert not source_file.exists()
+    assert dest_file.read_text(encoding="utf-8") == "payload"

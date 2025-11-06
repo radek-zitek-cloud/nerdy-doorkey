@@ -12,8 +12,9 @@ A powerful dual-pane terminal file browser with SSH support, Git integration, an
 - **Dual-Pane Interface**: Browse two directories side-by-side with independent navigation
 - **Remote SSH Support**: Connect to remote hosts via SSH and browse remote filesystems seamlessly
 - **Git Integration**: View git status, stage/unstage files, commit, diff, log, and blame directly in the browser
-- **Three Display Modes**:
+- **Four Display Modes**:
   - **File Mode**: Shows file size and modification time
+  - **Tree Mode**: Displays the left pane as a recursive tree with collapsible directories
   - **Git Mode**: Shows git status codes inline
   - **Owner Mode**: Shows file ownership (user:group)
 - **Comprehensive File Operations**: Copy, move, delete, rename, create files/directories
@@ -117,11 +118,13 @@ python -m src.nedok.cli ~ /tmp
 - **→**: Switch to right pane
 - **←** or **Shift+Tab**: Switch to left pane
 - **PgUp/PgDn**: Scroll by 5 lines
+- **+ / -** (Tree mode only): Expand directory / collapse selected (or parent for files) in the left pane tree
 
 ### Display Modes
 
 Press **m** to open mode selection, then:
 - **f**: File mode (shows size and modification time)
+- **t**: Tree mode (renders the left pane as a recursive tree; `+` expands and `-` collapses)
 - **g**: Git mode (shows git status)
 - **o**: Owner mode (shows user:group ownership)
 
@@ -159,6 +162,7 @@ Navigation:     ↑↓/jk  PgUp/PgDn  Enter  Backspace  Tab/←→
 Files:          c)opy  t)ransfer  d)elete  n)ame  f)ile  F)older
 Edit:           v)iew  e)dit  s)ync  S)sh  x)disconnect
 Git:            a)dd  u)nstage  r)estore  g)diff  o)commit  l)og  b)lame
+Tree:           m→t mode  + expand dir  - collapse parent (left pane)
 Other:          :cmd  m)ode  h)elp  q)uit
 ```
 
@@ -189,6 +193,7 @@ Other:          :cmd  m)ode  h)elp  q)uit
 
 Nerdy Doorkey supports a configuration file at `~/.nedok.toml` for customizing:
 - Color schemes for File and Git modes
+- Dialog popup colors (foreground/background) for confirmation prompts
 - Saved SSH credentials
 - Session state (last used directories)
 

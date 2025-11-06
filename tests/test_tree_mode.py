@@ -57,3 +57,24 @@ def test_tree_mode_collapse_and_expand_from_file(tmp_path: Path) -> None:
     assert browser.left.expand_tree_at_cursor()
     browser._refresh_pane(browser.left)
     assert target_file in [entry.path for entry in browser.left.entries]
+
+
+def test_tree_mode_handles_symlink_cycles(tmp_path: Path) -> None:
+    """Tree mode should not recurse endlessly when encountering symlink loops."""
+    base = tmp_path / "base"
+    child = base / "child"
+    child.mkdir(parents=True)
+    (child / "file.txt").write_text("payload", encoding="utf-8")
+    loop = child / "loop"
+    loop.symlink_to(base)
+
+    browser = DualPaneBrowser(tmp_path, tmp_path)
+    browser.mode = BrowserMode.TREE
+    browser._refresh_pane(browser.left)
+
+    entries = browser.left.entries
+    assert sum(1 for entry in entries if entry.path == base) == 1
+    assert sum(1 for entry in entries if entry.path == child) == 1
+    assert sum(1 for entry in entries if entry.path == loop) == 1
+    loop_entry = next(entry for entry in entries if entry.path == loop)
+    assert not loop_entry.tree_is_expanded

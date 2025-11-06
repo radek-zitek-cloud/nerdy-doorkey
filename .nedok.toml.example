@@ -22,6 +22,12 @@ renamed = "cyan"              # Renamed files (R )
 clean = "gray_dim"            # Clean files (tracked, no changes)
 directory = "blue_bold"       # Directories (always blue in git mode)
 
+[colors.dialog]
+# Configure confirmation popup colors (foreground/background)
+# Allowed values: black, red, green, yellow, blue, magenta, cyan, white, default
+foreground = "black"
+background = "cyan"
+
 # SSH Credentials
 # ⚠️  SECURITY WARNING: Passwords are stored in PLAINTEXT - NOT SECURE!
 #
