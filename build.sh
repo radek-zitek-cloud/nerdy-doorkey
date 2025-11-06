@@ -1,21 +1,16 @@
 #!/usr/bin/env bash
 set -e
 
-echo "🔨 Buildingnedok..."
+echo "🔨 Building nedok..."
 
 # Clean previous builds
-rm -rf build dist *.spec
+rm -rf build dist
 
-# Build
-poetry run pyinstaller \
-    --onefile \
-    --name nedok \
-    --clean \
-    --strip \
-    src/nedok/cli.py
+# Build using spec file
+poetry run pyinstaller --clean --strip nedok.spec
 
 echo "✅ Build complete!"
-echo "📦 Binary: dis/tnedok"
+echo "📦 Binary: dist/nedok"
 echo ""
 echo "Test it:"
-echo "  ./dist/nedok"
+echo "  ./dist/nedok --version"

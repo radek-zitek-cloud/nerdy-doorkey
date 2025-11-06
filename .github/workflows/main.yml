@@ -21,7 +21,7 @@ jobs:
               curl -sSL https://install.python-poetry.org | python3 - &&
               export PATH=\"/root/.local/bin:\$PATH\" &&
               poetry install &&
-              poetry run pyinstaller --onefile --name nedok src/nedok/cli.py &&
+              poetry run pyinstaller --clean nedok.spec &&
               mv dist/nedok dist/nedok-linux-x86_64
             "
       
@@ -53,7 +53,7 @@ jobs:
               curl -sSL https://install.python-poetry.org | python3 - &&
               export PATH=\"/root/.local/bin:\$PATH\" &&
               poetry install &&
-              poetry run pyinstaller --onefile --name nedok src/nedok/cli.py &&
+              poetry run pyinstaller --clean nedok.spec &&
               mv dist/nedok dist/nedok-linux-arm64
             "
       
