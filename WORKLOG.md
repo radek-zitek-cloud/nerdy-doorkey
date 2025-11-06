@@ -14,3 +14,11 @@
   3. Security Warnings - Added prominent warnings (⚠️) throughout UI when saving/loading plaintext passwords, encouraging SSH agent usage
   4. Documentation - Enhanced README.md with comprehensive SSH security section, added SSH agent setup example, updated .nedok.toml.example with security best practices
   All tests pass (18/18). Committed and pushed to GitHub (commit ef8881b).
+
+- 2025-11-06: Addressed remaining CODE_REVIEW.md concerns and released v0.3.0:
+  1. Command Output Truncation Indicator - Added "... [truncated N lines] ..." marker when command output exceeds buffer (200 lines), applies to both local and remote execution
+  2. Enhanced Remote Error Handling - Added comprehensive error handling to `_delete_remote_dir_recursive()`, `_copy_remote_dir_to_local()`, and `_copy_local_dir_to_remote()` with detailed error messages for network failures
+  3. Config Mutation Regression Tests - Added tests/test_config.py with 3 tests ensuring DEFAULT_CONFIG isolation and preventing pollution from runtime mutations
+  4. Documentation Updates - Updated CODE_REVIEW.md to mark all resolved issues (critical bugs, security concerns, functional gaps, testing, documentation)
+  5. Version Bump - Bumped version 0.2.1 → 0.3.0 (MINOR for new features), updated VERSION, main.py, __init__.py, CHANGELOG.md, VERSIONING.md
+  All tests pass (21/21). All critical, security, and functional gap issues from CODE_REVIEW.md now resolved. Committed and pushed to GitHub (commit 8050894, tag v0.3.0).
