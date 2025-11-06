@@ -9,7 +9,7 @@ from nedok.colors import get_file_color, get_git_color
 from nedok.help_text import build_help_lines
 from nedok.modes import BrowserMode
 from nedok.render_dialogs import (
-    render_confirmation_dialog,
+    render_confirmation_overlay,
     render_create_input,
     render_help_panel,
     render_mode_prompt,
@@ -99,6 +99,12 @@ def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -
         height=help_area_height,
         width=width,
     )
+
+    if browser.in_mode_prompt:
+        render_mode_prompt(browser, stdscr, height, width)
+
+    if browser.pending_action:
+        render_confirmation_overlay(browser, stdscr, height, width)
 
     try:
         show_cursor = (browser.in_command_mode or browser.in_rename_mode or
@@ -275,12 +281,8 @@ def render_command_area(
     if height < 3 or width < 10:
         return None
 
-    if browser.pending_action:
-        return render_confirmation_dialog(browser, stdscr, origin_y, origin_x, height, width)
     if browser.in_ssh_connect_mode:
         return render_ssh_connect_input(browser, stdscr, origin_y, origin_x, height, width)
-    if browser.in_mode_prompt:
-        return render_mode_prompt(browser, stdscr, origin_y, origin_x, height, width)
     if browser.show_help:
         return render_help_panel(browser, stdscr, origin_y, origin_x, height, width)
     if browser.in_rename_mode:

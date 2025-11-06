@@ -5,11 +5,22 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, Callable, List, Optional, Union
 
 if TYPE_CHECKING:
     from .state import _PaneEntry
+    from .ssh_connection import SSHConnection
+
+
+@dataclass
+class _DestinationInfo:
+    path: Union[Path, str]
+    is_remote: bool
+    exists: bool
+    is_dir: bool
+    ssh_connection: Optional["SSHConnection"]
 
 
 class FileOperationsMixin:
@@ -105,41 +116,12 @@ class FileOperationsMixin:
             return
 
         entry_name = self._get_entry_name(entry)
-
-        # Check destination existence
-        if self._inactive_pane.is_remote:
-            dest_path = str(PurePosixPath(str(self._inactive_pane.current_dir)) / entry_name)
-            if self._inactive_pane.ssh_connection and self._inactive_pane.ssh_connection.exists(dest_path):
-                self.status_message = f"Destination exists: {entry_name}"
-                return
-        else:
-            dest_path = Path(self._inactive_pane.current_dir) / entry_name
-            if dest_path.exists():
-                self.status_message = f"Destination exists: {entry_name}"
-                return
-
-        try:
-            # Determine copy operation based on source/dest types
-            src_remote = entry.is_remote
-            dst_remote = self._inactive_pane.is_remote
-
-            if not src_remote and not dst_remote:
-                # Local to local
-                self._copy_local_to_local(entry, dest_path)
-            elif src_remote and not dst_remote:
-                # Remote to local
-                self._copy_remote_to_local(entry, dest_path)
-            elif not src_remote and dst_remote:
-                # Local to remote
-                self._copy_local_to_remote(entry, dest_path)
-            else:
-                # Remote to remote
-                self._copy_remote_to_remote(entry, dest_path)
-
-            self.status_message = f"Copied {entry_name}."
-            self._refresh_panes()
-        except (OSError, PermissionError, shutil.Error, IOError) as err:
-            self.status_message = f"Copy failed: {err}"
+        self._perform_transfer(
+            entry,
+            entry_name,
+            operation_present="Copy",
+            operation_past="Copied",
+        )
 
     def _move_entry(self) -> None:
         """Move entry from active pane to inactive pane (copy + delete)."""
@@ -149,41 +131,34 @@ class FileOperationsMixin:
             return
 
         entry_name = self._get_entry_name(entry)
+        source_pane = self._active_pane
+        source_path = entry.path
+        is_dir = entry.is_dir
+        is_remote = entry.is_remote
 
-        # First copy, then delete on success
-        try:
-            # Save original status message handler
-            original_msg = self.status_message
-
-            # Perform copy
-            self._copy_entry()
-
-            # Check if copy succeeded (status won't have "failed" in it)
-            if self.status_message and "failed" in self.status_message.lower():
-                return
-
-            # Copy succeeded, now delete source
-            if entry.is_remote:
-                pane = self._active_pane
-                if not pane.ssh_connection:
-                    self.status_message = "Move failed: No SSH connection."
-                    return
-
-                if entry.is_dir:
-                    self._delete_remote_dir_recursive(pane.ssh_connection, str(entry.path))
+        def delete_source() -> None:
+            if is_remote:
+                ssh_conn = source_pane.ssh_connection
+                if not ssh_conn:
+                    raise IOError("No SSH connection.")
+                if is_dir:
+                    self._delete_remote_dir_recursive(ssh_conn, str(source_path))
                 else:
-                    pane.ssh_connection.remove(str(entry.path))
+                    ssh_conn.remove(str(source_path))
             else:
-                # Local delete
-                if entry.is_dir:
-                    shutil.rmtree(str(entry.path))
+                path = Path(source_path)
+                if is_dir:
+                    shutil.rmtree(str(path))
                 else:
-                    Path(entry.path).unlink()
+                    path.unlink()
 
-            self.status_message = f"Moved {entry_name}."
-            self._refresh_panes()
-        except (OSError, PermissionError, shutil.Error, IOError) as err:
-            self.status_message = f"Move failed: {err}"
+        self._perform_transfer(
+            entry,
+            entry_name,
+            operation_present="Move",
+            operation_past="Moved",
+            post_copy=delete_source,
+        )
 
     def _copy_local_to_local(self, entry: "_PaneEntry", dest_path: Path) -> None:
         """Copy from local to local."""
@@ -237,6 +212,140 @@ class FileOperationsMixin:
                 self._copy_local_dir_to_remote(tmp_path, dest_path, dst_ssh)
             else:
                 dst_ssh.put_file(str(tmp_path), dest_path)
+
+    def _perform_transfer(
+        self,
+        entry: "_PaneEntry",
+        entry_name: str,
+        *,
+        operation_present: str,
+        operation_past: str,
+        overwrite: bool = False,
+        post_copy: Optional[Callable[[], None]] = None,
+    ) -> None:
+        try:
+            dest_info = self._resolve_destination_info(entry_name)
+        except (OSError, IOError) as err:
+            self.status_message = f"{operation_present} failed: {err}"
+            return
+
+        if self._destination_is_same_as_source(entry, dest_info):
+            self.status_message = "Source and destination are the same."
+            return
+
+        if dest_info.exists and not overwrite:
+            self._request_confirmation(
+                f"{operation_present} '{entry_name}' will overwrite destination. Overwrite?",
+                lambda: self._perform_transfer(
+                    entry,
+                    entry_name,
+                    operation_present=operation_present,
+                    operation_past=operation_past,
+                    overwrite=True,
+                    post_copy=post_copy,
+                ),
+                cancel_message=f"{operation_present} cancelled.",
+            )
+            self.status_message = f"{operation_present} awaiting confirmation."
+            return
+
+        try:
+            if dest_info.exists and overwrite:
+                self._remove_destination(dest_info)
+
+            self._execute_copy(entry, dest_info)
+
+            if post_copy:
+                post_copy()
+
+            self.status_message = f"{operation_past} {entry_name}."
+            self._refresh_panes()
+        except (OSError, PermissionError, shutil.Error, IOError) as err:
+            self.status_message = f"{operation_present} failed: {err}"
+
+    def _execute_copy(self, entry: "_PaneEntry", dest_info: _DestinationInfo) -> None:
+        """Perform the actual copy based on source/destination types."""
+        dest_path = dest_info.path
+        src_remote = entry.is_remote
+        dst_remote = dest_info.is_remote
+
+        if not src_remote and not dst_remote:
+            self._copy_local_to_local(entry, dest_path)  # type: ignore[arg-type]
+        elif src_remote and not dst_remote:
+            self._copy_remote_to_local(entry, dest_path)  # type: ignore[arg-type]
+        elif not src_remote and dst_remote:
+            self._copy_local_to_remote(entry, dest_path)  # type: ignore[arg-type]
+        else:
+            self._copy_remote_to_remote(entry, dest_path)  # type: ignore[arg-type]
+
+    def _resolve_destination_info(self, entry_name: str) -> _DestinationInfo:
+        """Compute destination path metadata for the inactive pane."""
+        if self._inactive_pane.is_remote:
+            dest_ssh = self._inactive_pane.ssh_connection
+            if not dest_ssh:
+                raise IOError("No SSH connection for destination")
+            dest_dir = PurePosixPath(str(self._inactive_pane.current_dir))
+            path = str(dest_dir / entry_name)
+            exists = dest_ssh.exists(path)
+            is_dir = dest_ssh.is_dir(path) if exists else False
+            return _DestinationInfo(
+                path=path,
+                is_remote=True,
+                exists=exists,
+                is_dir=is_dir,
+                ssh_connection=dest_ssh,
+            )
+
+        dest_dir = Path(self._inactive_pane.current_dir)
+        path = dest_dir / entry_name
+        exists = path.exists()
+        is_dir = path.is_dir() if exists else False
+        return _DestinationInfo(
+            path=path,
+            is_remote=False,
+            exists=exists,
+            is_dir=is_dir,
+            ssh_connection=None,
+        )
+
+    def _destination_is_same_as_source(self, entry: "_PaneEntry", dest_info: _DestinationInfo) -> bool:
+        """Check if destination refers to the same path as the source."""
+        if entry.is_remote != dest_info.is_remote:
+            return False
+
+        if entry.is_remote:
+            src_ssh = self._active_pane.ssh_connection
+            if not src_ssh or dest_info.ssh_connection is None or src_ssh is not dest_info.ssh_connection:
+                return False
+            return str(entry.path) == str(dest_info.path)
+
+        try:
+            source_path = Path(entry.path).resolve()
+            dest_path = Path(dest_info.path).resolve()
+        except OSError:
+            return False
+        return source_path == dest_path
+
+    def _remove_destination(self, dest_info: _DestinationInfo) -> None:
+        """Remove an existing destination before overwriting."""
+        if not dest_info.exists:
+            return
+
+        if dest_info.is_remote:
+            ssh_conn = dest_info.ssh_connection
+            if not ssh_conn:
+                raise IOError("No SSH connection for destination")
+            if dest_info.is_dir:
+                self._delete_remote_dir_recursive(ssh_conn, str(dest_info.path))
+            else:
+                ssh_conn.remove(str(dest_info.path))
+            return
+
+        path = Path(dest_info.path)
+        if dest_info.is_dir:
+            shutil.rmtree(str(path))
+        else:
+            path.unlink()
 
     def _copy_remote_dir_to_local(self, ssh_conn, remote_path: str, local_path: Path) -> None:
         """Recursively copy remote directory to local.

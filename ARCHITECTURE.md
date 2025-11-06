@@ -195,7 +195,7 @@ poetry add --group dev <package>  # for test/dev deps
 - Cursor visibility managed: shown during command/rename/create/SSH input, hidden otherwise
 
 **`src/nedok/render_dialogs.py`** (283 lines) - Modal dialog rendering:
-- `render_confirmation_dialog()`: Y/N confirmation prompt
+- `render_confirmation_overlay()`: colorful Y/N confirmation prompt
 - `render_ssh_connect_input()`: SSH connection form (Host, User, Password with Tab navigation)
 - `render_rename_input()`: Rename input with cursor positioning
 - `render_create_input()`: File/directory creation input with cursor positioning

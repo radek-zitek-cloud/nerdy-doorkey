@@ -56,6 +56,7 @@ def draw_frame(
     origin_x: int,
     height: int,
     width: int,
+    attr: int = curses.A_NORMAL,
 ) -> None:
     """Draw a rectangular ASCII frame."""
     if height < 2 or width < 2:
@@ -67,18 +68,18 @@ def draw_frame(
     right = origin_x + width - 1
 
     try:
-        stdscr.addch(top, left, BOX_TOP_LEFT)
-        stdscr.addch(top, right, BOX_TOP_RIGHT)
-        stdscr.addch(bottom, left, BOX_BOTTOM_LEFT)
-        stdscr.addch(bottom, right, BOX_BOTTOM_RIGHT)
+        stdscr.addch(top, left, BOX_TOP_LEFT, attr)
+        stdscr.addch(top, right, BOX_TOP_RIGHT, attr)
+        stdscr.addch(bottom, left, BOX_BOTTOM_LEFT, attr)
+        stdscr.addch(bottom, right, BOX_BOTTOM_RIGHT, attr)
 
         for x_axis in range(left + 1, right):
-            stdscr.addch(top, x_axis, BOX_HORIZONTAL)
-            stdscr.addch(bottom, x_axis, BOX_HORIZONTAL)
+            stdscr.addch(top, x_axis, BOX_HORIZONTAL, attr)
+            stdscr.addch(bottom, x_axis, BOX_HORIZONTAL, attr)
 
         for y_axis in range(top + 1, bottom):
-            stdscr.addch(y_axis, left, BOX_VERTICAL)
-            stdscr.addch(y_axis, right, BOX_VERTICAL)
+            stdscr.addch(y_axis, left, BOX_VERTICAL, attr)
+            stdscr.addch(y_axis, right, BOX_VERTICAL, attr)
     except curses.error:
         pass
 
@@ -89,6 +90,7 @@ def draw_frame_title(
     origin_x: int,
     width: int,
     title: str,
+    attr: int = curses.A_BOLD,
 ) -> None:
     """Overlay a title along the top border of a frame."""
     available = max(width - 2, 0)
@@ -97,7 +99,7 @@ def draw_frame_title(
     truncated = truncate_end(title, available)
     try:
         stdscr.addnstr(
-            origin_y, origin_x + 1, truncated.ljust(available), available, curses.A_BOLD
+            origin_y, origin_x + 1, truncated.ljust(available), available, attr
         )
     except curses.error:
         pass

@@ -37,6 +37,10 @@ DEFAULT_CONFIG = {
             "clean": "gray_dim",
             "directory": "blue_bold",
         },
+        "dialog": {
+            "foreground": "black",
+            "background": "cyan",
+        },
     },
     "ssh": {
         "credentials": {},
@@ -108,6 +112,12 @@ def get_git_mode_colors() -> Dict[str, str]:
     """Get git mode color configuration."""
     config = load_config()
     return config.get("colors", {}).get("git_mode", DEFAULT_CONFIG["colors"]["git_mode"])
+
+
+def get_dialog_colors() -> Dict[str, str]:
+    """Get dialog (confirmation popup) color configuration."""
+    config = load_config()
+    return config.get("colors", {}).get("dialog", DEFAULT_CONFIG["colors"]["dialog"])
 
 
 def get_ssh_credentials(hostname: str) -> Optional[Dict[str, str]]:
@@ -221,6 +231,7 @@ __all__ = [
     "save_config",
     "get_file_mode_colors",
     "get_git_mode_colors",
+    "get_dialog_colors",
     "get_ssh_credentials",
     "save_ssh_credentials",
     "create_default_config",
