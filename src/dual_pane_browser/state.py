@@ -232,6 +232,19 @@ class _PaneState:
             self.scroll_offset = 0
             self.refresh_entries(mode)
 
+    def go_to_parent(self) -> None:
+        """Navigate to parent directory (handles both local and remote)."""
+        if self.is_remote:
+            # For remote paths (strings), use PurePosixPath to get parent
+            current = PurePosixPath(str(self.current_dir))
+            parent = current.parent
+            self.current_dir = str(parent)
+        else:
+            # For local paths, use Path.parent
+            self.current_dir = Path(self.current_dir).parent
+        self.cursor_index = 0
+        self.scroll_offset = 0
+
     def _build_entry(self, path: Path, *, is_parent: bool = False) -> _PaneEntry:
         """Construct a pane entry for the given path."""
         stat_info = self._stat_or_none(path)

@@ -83,10 +83,8 @@ class InputHandlersMixin:
                 self.status_message = None
             return True
         if key_code in (curses.KEY_BACKSPACE, 127, 8):
-            pane.current_dir = pane.current_dir.parent
-            pane.cursor_index = 0
-            pane.scroll_offset = 0
             try:
+                pane.go_to_parent()
                 pane.refresh_entries(self.mode)
                 self.status_message = None
             except PermissionError as err:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -62,7 +64,7 @@ COLOR_MAP = {
 def load_config() -> Dict[str, Any]:
     """Load configuration from file or return defaults."""
     if not CONFIG_FILE.exists():
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
 
     try:
         with open(CONFIG_FILE, "rb") as f:
@@ -71,7 +73,7 @@ def load_config() -> Dict[str, Any]:
         return _merge_config(DEFAULT_CONFIG, config)
     except Exception:
         # If config is corrupted, return defaults
-        return DEFAULT_CONFIG.copy()
+        return copy.deepcopy(DEFAULT_CONFIG)
 
 
 def save_config(config: Dict[str, Any]) -> None:
@@ -81,13 +83,13 @@ def save_config(config: Dict[str, Any]) -> None:
         with open(CONFIG_FILE, "wb") as f:
             tomli_w.dump(config, f)
     except Exception as err:
-        # Silently fail - don't break the app if config save fails
-        pass
+        # Don't break the app if config save fails, but inform the user
+        print(f"Warning: Failed to save configuration to {CONFIG_FILE}: {err}", file=sys.stderr)
 
 
 def _merge_config(default: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
     """Merge user config with defaults, preserving user values."""
-    result = default.copy()
+    result = copy.deepcopy(default)
     for key, value in user.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _merge_config(result[key], value)
