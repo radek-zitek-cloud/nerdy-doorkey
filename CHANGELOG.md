@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2025-11-06
+
+### Fixed
+- **Missing spec file** – Added nedok.spec to git repository (was previously ignored)
+  - Spec file is required for GitHub Actions workflow builds
+  - Contains pathex=['src'] for proper module discovery
+  - Fixes "Spec file not found" error in CI/CD pipeline
+
+### Changed
+- Updated .gitignore to allow nedok.spec tracking while still ignoring temporary spec files
+
 ## [0.4.2] - 2025-11-06
 
 ### Fixed

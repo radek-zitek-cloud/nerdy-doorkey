@@ -68,6 +68,11 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 ## Version History
 
+- **v0.4.3** (2025-11-06): Add missing spec file to repository
+  - Added nedok.spec to git (was previously ignored by .gitignore)
+  - Fixes GitHub Actions workflow build failures
+  - Spec file required for PyInstaller builds in CI/CD
+
 - **v0.4.2** (2025-11-06): Build system fixes
   - Fixed GitHub Actions workflow to use nedok.spec file
   - Fixed PyInstaller builds to handle absolute imports correctly
