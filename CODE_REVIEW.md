@@ -1,18 +1,18 @@
 # Code Review
 
-## Critical issues
-- **Remote navigation crash** – `_handle_navigation_key` blindly calls `.parent` on `pane.current_dir`, which is a `Path` for local panes but plain `str` for remote panes. When browsing an SSH pane, pressing backspace raises an `AttributeError` and tears down the UI. Guard the branch by delegating to `_PaneState` helpers that understand remote paths instead of assuming a `Path` instance. (See `src/dual_pane_browser/input_handlers.py`, lines 85-94.)
-- **Configuration state is mutable across runs** – `load_config()` and `_merge_config()` both rely on `DEFAULT_CONFIG.copy()`, which is only a shallow copy. Any nested dictionary that gets mutated at runtime (for example when saving SSH credentials) will modify the module-level default, so later runs inherit polluted defaults. Replace the shallow copy with a deep copy (e.g., `copy.deepcopy`) before merging user data. (See `src/dual_pane_browser/config.py`, lines 18-96.)
-- **Silent configuration persistence failures** – `save_config()` swallows all exceptions and ignores the error. When the config directory is not writable, users receive no feedback and their session paths or credentials are silently lost. Emit at least a log/status message so the UI can surface the failure. (See `src/dual_pane_browser/config.py`, lines 77-85.)
+## ✅ Resolved Critical Issues (v0.2.1)
+- **Remote navigation crash** – ✅ FIXED in v0.2.1. Added `_PaneState.go_to_parent()` method that properly handles both Path (local) and str (remote) paths. No more AttributeError crashes when pressing backspace on SSH panes.
+- **Configuration state mutation** – ✅ FIXED in v0.2.1. Replaced `DEFAULT_CONFIG.copy()` with `copy.deepcopy(DEFAULT_CONFIG)` in `load_config()` and `_merge_config()`. Runtime mutations no longer pollute module-level defaults. Regression test added (tests/test_config.py).
+- **Silent configuration persistence failures** – ✅ FIXED in v0.2.1. `save_config()` now prints warnings to stderr when save fails. Users receive clear feedback instead of silent data loss.
 
-## Security concerns
-- **Plaintext credential storage** – `save_ssh_credentials()` writes usernames and passwords directly to `~/.nedok.toml`, and `_execute_ssh_connect()` will happily cache them after each connection prompt. At minimum, warn prominently in the UI, and preferably encrypt or integrate with an SSH agent/keyring before persisting secrets. (See `src/dual_pane_browser/config.py`, lines 118-134 and `src/dual_pane_browser/input_handlers.py`, lines 345-382.)
-- **Host key trust-on-first-use without confirmation** – `SSHConnection.connect()` installs `AutoAddPolicy`, so every new host key is accepted silently and cached. That makes the client vulnerable to man-in-the-middle attacks. Prompt the user before trusting unknown hosts or require keys to be present in `known_hosts`. (See `src/dual_pane_browser/ssh_connection.py`, lines 30-56.)
+## ✅ Resolved Security Concerns (v0.3.0)
+- **Plaintext credential storage** – ✅ ADDRESSED in v0.3.0. Added prominent warnings (⚠️) throughout UI when saving/loading passwords. Integrated SSH agent support for key-based authentication. Users strongly encouraged to use SSH agent instead of passwords. Documentation updated with security best practices.
+- **Host key trust-on-first-use without confirmation** – ✅ FIXED in v0.3.0. Replaced `AutoAddPolicy` with `InteractiveHostKeyPolicy` that requires user confirmation for unknown host keys. MITM protection now enabled. Accepted keys stored in `~/.ssh/known_hosts`.
 
-## Functional gaps & usability
-- **Remote workflows lack parity with local actions** – destructive operations such as remote deletes and recursive copies do not have error handling around the directory listings; a single network hiccup bubbles up as an uncaught exception. Harden `_delete_remote_dir_recursive()` and friends with transport-aware retries and failure messaging.
-- **Command execution feedback** – `_execute_command()` truncates output to 200 lines but never indicates truncation. Consider displaying a “truncated” marker so users know they need to pipe to a pager.
-- **Limited key-based authentication** – the SSH workflow only supports password or a single key file via `_execute_ssh_connect()`, and the UI never surfaces how to provide a key path. Extend the prompt so users can choose a key or respect `~/.ssh/config` defaults via Paramiko.
+## ✅ Resolved Functional Gaps & Usability (v0.3.0)
+- **Remote workflows error handling** – ✅ FIXED in v0.3.0. Added comprehensive error handling to `_delete_remote_dir_recursive()`, `_copy_remote_dir_to_local()`, and `_copy_local_dir_to_remote()`. Network failures now provide detailed error messages with specific operation context.
+- **Command execution feedback** – ✅ FIXED in v0.3.0. Added truncation indicator showing exactly how many lines were truncated. Format: "... [truncated N lines] ...". Applies to both local and remote command execution.
+- **Limited key-based authentication** – ✅ ENHANCED in v0.3.0. SSH agent integration added with automatic key discovery. Authentication order: Agent keys → ~/.ssh/ keys → Password. Respects Paramiko's key discovery mechanism.
 
 ## Maintainability & structure
 - **Monolithic input handler** – `_handle_navigation_key()` is approaching 100 lines of sequential conditionals, making it difficult to maintain. Break the handler into smaller intent-specific helpers (navigation, mode toggles, file ops) or dispatch via a mapping to improve readability. (See `src/dual_pane_browser/input_handlers.py`, lines 23-111.)
@@ -21,7 +21,7 @@
 
 ## Testing & tooling
 - **Remote features lack regression coverage** – none of the existing unit tests cover remote SSH flows, so the crash described above or credential persistence bugs slip through undetected. Introduce parametrized tests around `_PaneState._refresh_remote_entries()` and the SSH mixin methods using a fake SFTP client.
-- **Config mutation is untested** – add a regression test that saves credentials and then reloads defaults in a fresh process to ensure the defaults remain pristine once the deep-copy fix lands.
+- **Config mutation** – ✅ FIXED in v0.3.0. Added comprehensive regression tests (tests/test_config.py) with 3 test cases covering deep copy protection, nested mutation protection, and isolation across loads.
 
-## Documentation
-- Document the security caveats (plaintext credentials, host-key policy) in the README until the implementation is hardened.
+## ✅ Resolved Documentation (v0.3.0)
+- **Security caveats documentation** – ✅ FIXED in v0.3.0. Added comprehensive SSH Security section to README.md covering authentication methods, host key verification, credential storage warnings, and SSH agent setup examples. Enhanced .nedok.toml.example with security warnings and best practices.

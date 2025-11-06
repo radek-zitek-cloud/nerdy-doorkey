@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-11-06
+
+### Added
+
+#### SSH Security Features
+- **SSH Agent Integration** - Automatic support for SSH agent key-based authentication
+  - Authentication priority: Agent keys → Key files → Password
+  - Reduces reliance on password storage for better security
+- **Host Key Verification** - Interactive confirmation for unknown SSH host keys
+  - New `InteractiveHostKeyPolicy` class for MITM attack prevention
+  - Users must explicitly approve new host keys
+  - Accepted keys stored in `~/.ssh/known_hosts`
+- **Security Warnings** - Prominent warnings (⚠️) throughout UI
+  - Warning emoji displayed when saving/loading plaintext passwords
+  - Status messages encourage SSH agent usage
+  - Connection prompts explain authentication order
+
+#### Usability Improvements
+- **Command Output Truncation Indicator** - Shows how many lines were truncated
+  - Format: "... [truncated N lines] ..."
+  - Applies to both local and remote command execution
+  - Users now know when output is incomplete
+
+#### Testing & Reliability
+- **Config Mutation Regression Tests** - Prevents DEFAULT_CONFIG pollution
+  - Three comprehensive tests for deep copy protection
+  - Ensures configuration isolation across runs
+- **Enhanced Remote Error Handling** - Better error messages for network failures
+  - Added detailed error messages for remote delete operations
+  - Improved error handling for remote copy operations (remote→local, local→remote)
+  - Network hiccups now provide clear feedback
+
+### Changed
+- **Documentation** - Comprehensive SSH security section in README.md
+  - Added authentication methods explanation
+  - Added host key verification documentation
+  - Added SSH agent setup example
+  - Enhanced `.nedok.toml.example` with security best practices
+
+All improvements address concerns identified in CODE_REVIEW.md (critical bugs, security issues, and functional gaps).
+
 ## [0.2.1] - 2025-11-06
 
 ### Fixed

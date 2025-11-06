@@ -59,9 +59,16 @@ class FileOperationsMixin:
         self._request_confirmation(f"Delete {entry_name}?", do_delete)
 
     def _delete_remote_dir_recursive(self, ssh_conn, remote_path: str) -> None:
-        """Recursively delete a remote directory."""
-        # List directory contents
-        entries = ssh_conn.list_directory(remote_path)
+        """Recursively delete a remote directory.
+
+        Raises:
+            IOError: If network operation fails
+        """
+        try:
+            # List directory contents
+            entries = ssh_conn.list_directory(remote_path)
+        except IOError as err:
+            raise IOError(f"Failed to list remote directory {remote_path}: {err}") from err
 
         for name, attrs in entries:
             if name in ('.', '..'):
@@ -73,13 +80,22 @@ class FileOperationsMixin:
             import stat as stat_module
             if stat_module.S_ISDIR(attrs.st_mode or 0):
                 # Recursively delete subdirectory
-                self._delete_remote_dir_recursive(ssh_conn, full_path)
+                try:
+                    self._delete_remote_dir_recursive(ssh_conn, full_path)
+                except IOError as err:
+                    raise IOError(f"Failed to delete remote subdirectory {full_path}: {err}") from err
             else:
                 # Delete file
-                ssh_conn.remove(full_path)
+                try:
+                    ssh_conn.remove(full_path)
+                except IOError as err:
+                    raise IOError(f"Failed to delete remote file {full_path}: {err}") from err
 
         # Finally, remove the empty directory
-        ssh_conn.rmdir(remote_path)
+        try:
+            ssh_conn.rmdir(remote_path)
+        except IOError as err:
+            raise IOError(f"Failed to remove remote directory {remote_path}: {err}") from err
 
     def _copy_entry(self) -> None:
         """Copy entry from active pane to inactive pane."""
@@ -223,8 +239,16 @@ class FileOperationsMixin:
                 dst_ssh.put_file(str(tmp_path), dest_path)
 
     def _copy_remote_dir_to_local(self, ssh_conn, remote_path: str, local_path: Path) -> None:
-        """Recursively copy remote directory to local."""
-        entries = ssh_conn.list_directory(remote_path)
+        """Recursively copy remote directory to local.
+
+        Raises:
+            IOError: If network operation fails
+            OSError: If local file operation fails
+        """
+        try:
+            entries = ssh_conn.list_directory(remote_path)
+        except IOError as err:
+            raise IOError(f"Failed to list remote directory {remote_path}: {err}") from err
 
         for name, attrs in entries:
             if name in ('.', '..'):
@@ -235,21 +259,49 @@ class FileOperationsMixin:
 
             import stat as stat_module
             if stat_module.S_ISDIR(attrs.st_mode or 0):
-                local_item.mkdir(exist_ok=True)
-                self._copy_remote_dir_to_local(ssh_conn, remote_item, local_item)
+                try:
+                    local_item.mkdir(exist_ok=True)
+                except OSError as err:
+                    raise OSError(f"Failed to create local directory {local_item}: {err}") from err
+                try:
+                    self._copy_remote_dir_to_local(ssh_conn, remote_item, local_item)
+                except (IOError, OSError) as err:
+                    raise IOError(f"Failed to copy remote directory {remote_item}: {err}") from err
             else:
-                ssh_conn.get_file(remote_item, str(local_item))
+                try:
+                    ssh_conn.get_file(remote_item, str(local_item))
+                except IOError as err:
+                    raise IOError(f"Failed to copy remote file {remote_item}: {err}") from err
 
     def _copy_local_dir_to_remote(self, local_path: Path, remote_path: str, ssh_conn) -> None:
-        """Recursively copy local directory to remote."""
-        for item in local_path.iterdir():
+        """Recursively copy local directory to remote.
+
+        Raises:
+            IOError: If network operation fails
+            OSError: If local file operation fails
+        """
+        try:
+            items = list(local_path.iterdir())
+        except OSError as err:
+            raise OSError(f"Failed to list local directory {local_path}: {err}") from err
+
+        for item in items:
             remote_item = str(PurePosixPath(remote_path) / item.name)
 
             if item.is_dir():
-                ssh_conn.mkdir(remote_item)
-                self._copy_local_dir_to_remote(item, remote_item, ssh_conn)
+                try:
+                    ssh_conn.mkdir(remote_item)
+                except IOError as err:
+                    raise IOError(f"Failed to create remote directory {remote_item}: {err}") from err
+                try:
+                    self._copy_local_dir_to_remote(item, remote_item, ssh_conn)
+                except (IOError, OSError) as err:
+                    raise IOError(f"Failed to copy local directory {item}: {err}") from err
             else:
-                ssh_conn.put_file(str(item), remote_item)
+                try:
+                    ssh_conn.put_file(str(item), remote_item)
+                except IOError as err:
+                    raise IOError(f"Failed to copy local file {item}: {err}") from err
 
     def _view_file(self) -> None:
         """View file (download to temp if remote)."""

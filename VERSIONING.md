@@ -68,6 +68,14 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 ## Version History
 
+- **v0.3.0** (2025-11-06): Security and reliability improvements
+  - SSH agent integration for key-based authentication
+  - Host key verification (MITM protection)
+  - Security warnings throughout UI
+  - Command output truncation indicators
+  - Enhanced remote error handling
+  - Config mutation regression tests
+
 - **v0.2.1** (2025-11-06): Critical bug fixes
   - Fixed remote navigation crash (backspace on SSH panes)
   - Fixed configuration mutation bug (deep copy issue)

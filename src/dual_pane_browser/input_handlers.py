@@ -313,7 +313,15 @@ class InputHandlersMixin:
                     output_lines = ["<no output>"]
 
                 from .browser import OUTPUT_BUFFER_MAX_LINES
-                self.command_output = output_lines[-OUTPUT_BUFFER_MAX_LINES:]
+                # Check if output was truncated
+                if len(output_lines) > OUTPUT_BUFFER_MAX_LINES:
+                    truncated_count = len(output_lines) - OUTPUT_BUFFER_MAX_LINES
+                    self.command_output = [
+                        f"... [truncated {truncated_count} lines] ...",
+                        ""
+                    ] + output_lines[-OUTPUT_BUFFER_MAX_LINES:]
+                else:
+                    self.command_output = output_lines
                 self.status_message = f"Remote command exited with code {exit_code}."
             except Exception as err:
                 self.command_output = [f"Failed to run remote command: {err}"]
@@ -347,7 +355,15 @@ class InputHandlersMixin:
 
             # Bound output length to avoid overflowing the UI.
             from .browser import OUTPUT_BUFFER_MAX_LINES
-            self.command_output = output_lines[-OUTPUT_BUFFER_MAX_LINES:]
+            # Check if output was truncated
+            if len(output_lines) > OUTPUT_BUFFER_MAX_LINES:
+                truncated_count = len(output_lines) - OUTPUT_BUFFER_MAX_LINES
+                self.command_output = [
+                    f"... [truncated {truncated_count} lines] ...",
+                    ""
+                ] + output_lines[-OUTPUT_BUFFER_MAX_LINES:]
+            else:
+                self.command_output = output_lines
             self.status_message = f"Command exited with code {result.returncode}."
 
     def _start_ssh_connect(self) -> None:
