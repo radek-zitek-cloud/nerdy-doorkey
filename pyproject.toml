@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nedok"
-version = "0.4.0"
+version = "0.4.1"
 description = "Dual-pane terminal file browser with SSH and Git support."
 authors = ["Radek Zitek <radek@zitek.cloud>"]
 license = "MIT"

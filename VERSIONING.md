@@ -68,6 +68,12 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 ## Version History
 
+- **v0.4.1** (2025-11-06): Absolute imports and tooling improvements
+  - Converted all relative imports to absolute nedok.* imports
+  - Python version constraint updated (>=3.8,<3.15)
+  - Added pyinstaller for binary distribution support
+  - Improved compatibility with Python tooling and IDEs
+
 - **v0.4.0** (2025-11-06): Poetry build system migration
   - Migrated to Poetry for dependency and build management
   - Added pyproject.toml with Poetry configuration
