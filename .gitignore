@@ -28,7 +28,7 @@ MANIFEST
 
 # PyInstaller
 *.manifest
-*.spec
+# Note: nedok.spec is tracked as it's our build configuration
 
 # Installer logs
 pip-log.txt
