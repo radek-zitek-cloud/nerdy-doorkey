@@ -1,9 +1,15 @@
 name: Build Binaries
+
+# Required permissions for creating releases
+permissions:
+  contents: write
+
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
+
 jobs:
   build-x86_64:
     runs-on: ubuntu-latest
