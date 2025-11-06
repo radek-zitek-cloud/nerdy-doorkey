@@ -200,20 +200,31 @@ See `.nedok.toml.example` in the repository for full configuration options.
 
 ### Session Management
 
-Nerdy Doorkey automatically saves your session when you exit:
-- **Last directories**: Both pane locations are saved to `~/.nedok.toml`
-- **Auto-restore**: Launch without arguments to resume from your last session
+Nerdy Doorkey automatically saves your complete session when you exit:
+- **Last directories**: Both pane locations saved to `~/.nedok.toml`
+- **SSH connections**: Remote connections automatically saved and restored
+- **Auto-reconnect**: SSH sessions resume if credentials/keys available
+- **Seamless workflow**: Exit and restart to continue exactly where you left off
 - **Manual override**: Specify directories as arguments to start fresh
+
+**Session Persistence:**
+- Local directories always saved
+- Remote SSH connections saved (hostname, username, remote directory)
+- On restart: Auto-reconnect if credentials saved or SSH agent has keys
+- Fallback: Uses local directory if reconnection fails
 
 **Example:**
 ```bash
-# First session - browse specific directories
-python main.py ~/projects ~/documents
-
-# Exit and later restart - resumes from last location
+# First session - connect to remote server
 python main.py
+# Press S, connect to server.example.com
+# Browse remote files, then quit
 
-# Start fresh with new directories
+# Exit and later restart - automatically reconnects!
+python main.py
+# ✓ Reconnected left pane to user@server.example.com
+
+# Start fresh with new directories (no auto-reconnect)
 python main.py /tmp /var/log
 ```
 

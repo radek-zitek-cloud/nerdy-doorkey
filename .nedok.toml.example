@@ -48,6 +48,19 @@ directory = "blue_bold"       # Directories (always blue in git mode)
 # Session State
 # Automatically saved when you exit the browser
 # Restored when you launch without specifying directories
+# SSH connections are also saved and auto-reconnected if possible
 [session]
 left_directory = "."
 right_directory = "."
+
+# SSH connection states (auto-populated)
+# left_ssh and right_ssh are saved when you exit with remote connections active
+# [session.left_ssh]
+# hostname = "server.example.com"
+# username = "myuser"
+# remote_directory = "/home/myuser/projects"
+
+# [session.right_ssh]
+# hostname = "another-server.com"
+# username = "admin"
+# remote_directory = "/var/www"

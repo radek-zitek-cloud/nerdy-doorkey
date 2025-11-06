@@ -153,6 +153,26 @@ def get_last_directories() -> tuple[str, str]:
     return (left, right)
 
 
+def get_last_session() -> dict:
+    """Get complete session state including SSH connections.
+
+    Returns:
+        dict with keys:
+            - left_directory: str
+            - right_directory: str
+            - left_ssh: dict or None (hostname, username, remote_directory)
+            - right_ssh: dict or None (hostname, username, remote_directory)
+    """
+    config = load_config()
+    session = config.get("session", {})
+    return {
+        "left_directory": session.get("left_directory", "."),
+        "right_directory": session.get("right_directory", "."),
+        "left_ssh": session.get("left_ssh"),
+        "right_ssh": session.get("right_ssh"),
+    }
+
+
 def save_last_directories(left: str, right: str) -> None:
     """Save last used directories to session state."""
     config = load_config()
@@ -160,6 +180,38 @@ def save_last_directories(left: str, right: str) -> None:
         config["session"] = {}
     config["session"]["left_directory"] = left
     config["session"]["right_directory"] = right
+    save_config(config)
+
+
+def save_session(left_dir: str, right_dir: str,
+                 left_ssh: Optional[dict] = None,
+                 right_ssh: Optional[dict] = None) -> None:
+    """Save complete session state including SSH connections.
+
+    Args:
+        left_dir: Left pane directory
+        right_dir: Right pane directory
+        left_ssh: Left pane SSH connection dict (hostname, username, remote_directory) or None
+        right_ssh: Right pane SSH connection dict (hostname, username, remote_directory) or None
+    """
+    config = load_config()
+    if "session" not in config:
+        config["session"] = {}
+
+    config["session"]["left_directory"] = left_dir
+    config["session"]["right_directory"] = right_dir
+
+    # Save SSH connection details if present
+    if left_ssh:
+        config["session"]["left_ssh"] = left_ssh
+    elif "left_ssh" in config["session"]:
+        del config["session"]["left_ssh"]
+
+    if right_ssh:
+        config["session"]["right_ssh"] = right_ssh
+    elif "right_ssh" in config["session"]:
+        del config["session"]["right_ssh"]
+
     save_config(config)
 
 
@@ -174,4 +226,6 @@ __all__ = [
     "create_default_config",
     "get_last_directories",
     "save_last_directories",
+    "get_last_session",
+    "save_session",
 ]

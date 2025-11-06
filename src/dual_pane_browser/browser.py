@@ -66,14 +66,89 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         self.ssh_last_connection: Optional[Tuple[str, str, str]] = None  # (host, user, pass) for save prompt
         self.ssh_pending_connection: Optional[Tuple[str, str, Optional[str]]] = None  # (host, user, pass) for host key approval
 
-    def browse(self) -> Tuple[Path, Path]:
-        """Launch the UI and return the final directories."""
+    def auto_reconnect_ssh(self, left_ssh: Optional[dict] = None, right_ssh: Optional[dict] = None) -> tuple[bool, bool]:
+        """Attempt to auto-reconnect SSH sessions from saved state.
+
+        Args:
+            left_ssh: Left pane SSH info dict (hostname, username, remote_directory)
+            right_ssh: Right pane SSH info dict (hostname, username, remote_directory)
+
+        Returns:
+            Tuple of (left_connected, right_connected) booleans
+        """
+        from .ssh_connection import SSHConnection
+        from .config import get_ssh_credentials
+
+        left_connected = False
+        right_connected = False
+
+        # Try left pane reconnection
+        if left_ssh:
+            try:
+                hostname = left_ssh["hostname"]
+                username = left_ssh["username"]
+                remote_dir = left_ssh["remote_directory"]
+
+                # Try to get credentials (for password auth)
+                creds = get_ssh_credentials(hostname)
+                password = creds.get("password") if creds else None
+
+                # Attempt connection (SSH agent will be tried first automatically)
+                ssh_conn = SSHConnection(hostname=hostname, username=username)
+                ssh_conn.connect(password=password, auto_add_host_key=True)  # Auto-add for saved sessions
+
+                # Set up pane
+                self.left.ssh_connection = ssh_conn
+                self.left.current_dir = remote_dir
+                self.left.cursor_index = 0
+                self.left.scroll_offset = 0
+                left_connected = True
+
+            except Exception:
+                # Silently fail - will use local directory as fallback
+                pass
+
+        # Try right pane reconnection
+        if right_ssh:
+            try:
+                hostname = right_ssh["hostname"]
+                username = right_ssh["username"]
+                remote_dir = right_ssh["remote_directory"]
+
+                # Try to get credentials
+                creds = get_ssh_credentials(hostname)
+                password = creds.get("password") if creds else None
+
+                # Attempt connection
+                ssh_conn = SSHConnection(hostname=hostname, username=username)
+                ssh_conn.connect(password=password, auto_add_host_key=True)
+
+                # Set up pane
+                self.right.ssh_connection = ssh_conn
+                self.right.current_dir = remote_dir
+                self.right.cursor_index = 0
+                self.right.scroll_offset = 0
+                right_connected = True
+
+            except Exception:
+                # Silently fail - will use local directory as fallback
+                pass
+
+        return left_connected, right_connected
+
+    def browse(self) -> Tuple[Path, Path, Optional[dict], Optional[dict]]:
+        """Launch the UI and return the final directories and SSH connection info.
+
+        Returns:
+            Tuple of (left_dir, right_dir, left_ssh_info, right_ssh_info)
+            where ssh_info is dict with {hostname, username, remote_directory} or None
+        """
         try:
             return curses.wrapper(self._loop)
         except curses.error as err:
             raise DualPaneBrowserError("Failed to initialise curses UI.") from err
 
-    def _loop(self, stdscr: "curses._CursesWindow") -> Tuple[Path, Path]:  # type: ignore[name-defined]
+    def _loop(self, stdscr: "curses._CursesWindow") -> Tuple[Path, Path, Optional[dict], Optional[dict]]:  # type: ignore[name-defined]
         """Main curses event loop."""
         self._stdscr = stdscr
         curses.curs_set(0)
@@ -125,10 +200,27 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         finally:
             self._stdscr = None
 
+        # Collect SSH connection info if present
+        left_ssh = None
+        if self.left.is_remote and self.left.ssh_connection:
+            left_ssh = {
+                "hostname": self.left.ssh_connection.hostname,
+                "username": self.left.ssh_connection.username,
+                "remote_directory": str(self.left.current_dir),
+            }
+
+        right_ssh = None
+        if self.right.is_remote and self.right.ssh_connection:
+            right_ssh = {
+                "hostname": self.right.ssh_connection.hostname,
+                "username": self.right.ssh_connection.username,
+                "remote_directory": str(self.right.current_dir),
+            }
+
         # Convert to Path for return (remote connections return their local starting point)
         left_dir = Path(self.left.current_dir) if not self.left.is_remote else Path.cwd()
         right_dir = Path(self.right.current_dir) if not self.right.is_remote else Path.cwd()
-        return left_dir, right_dir
+        return left_dir, right_dir, left_ssh, right_ssh
 
     def _dismiss_overlays(self) -> None:
         """Dismiss help and mode selection overlays."""
