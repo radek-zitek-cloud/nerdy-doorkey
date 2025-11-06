@@ -1,4 +1,4 @@
-"""Git operation methods for the dual pane browser."""
+"""Actions that shell out to Git when the user requests a VCS feature."""
 
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ class GitOperationsMixin:
     """Mixin providing git operations (stage, commit, diff, log, blame, restore)."""
 
     def _git_stage_entry(self) -> None:
+        """Stage the selected file or directory for the next commit."""
         entry = self._active_pane.selected_entry()
         if entry is None or entry.is_parent:
             self.status_message = "Select an item to stage."
@@ -30,6 +31,7 @@ class GitOperationsMixin:
             self._refresh_panes()
 
     def _git_unstage_entry(self) -> None:
+        """Remove the selected item from the staging area."""
         entry = self._active_pane.selected_entry()
         if entry is None or entry.is_parent:
             self.status_message = "Select an item to unstage."
@@ -47,6 +49,7 @@ class GitOperationsMixin:
             self._refresh_panes()
 
     def _git_restore_entry(self) -> None:
+        """Prompt the user before resetting a file back to ``HEAD``."""
         entry = self._active_pane.selected_entry()
         if entry is None or entry.is_parent:
             self.status_message = "Select an item to restore."
@@ -329,6 +332,7 @@ class GitOperationsMixin:
             self.status_message = f"Git blame failed: {err}"
 
     def _git_context(self, entry: "_PaneEntry") -> Tuple[Path, Path] | None:
+        """Return ``(repository_root, relative_path)`` for ``entry``."""
         try:
             resolved = entry.path.resolve()
         except OSError as err:
@@ -358,6 +362,7 @@ class GitOperationsMixin:
         return repo_root, relative
 
     def _run_git_command(self, repo_root: Path, arguments: List[str]) -> bool:
+        """Execute ``git`` with ``arguments`` and capture errors for the UI."""
         try:
             result = subprocess.run(
                 ["git", "-C", str(repo_root), *arguments],

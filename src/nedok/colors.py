@@ -1,4 +1,10 @@
-"""Color management for the dual pane browser."""
+"""Translate high-level colour names into curses attributes.
+
+Working directly with the :mod:`curses` colour API can be intimidating for
+beginners because it relies on numeric IDs and terminal-specific behaviour.
+This module hides that detail behind small helper functions so the rest of the
+code can simply ask for colours like ``"cyan"`` or ``"blue_bold"``.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +15,7 @@ from pathlib import Path, PurePosixPath
 from nedok.config import get_dialog_colors
 
 class ColorPair(IntEnum):
-    """Color pair constants for curses."""
+    """Colour pair IDs used throughout the UI."""
     DEFAULT = 0
     DIRECTORY = 1
     EXECUTABLE = 2

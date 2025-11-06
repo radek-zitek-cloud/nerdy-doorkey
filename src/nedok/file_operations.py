@@ -1,4 +1,4 @@
-"""File operation methods for the dual pane browser."""
+"""Implement copy, move, delete, rename, and create commands."""
 
 from __future__ import annotations
 

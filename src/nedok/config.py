@@ -1,4 +1,10 @@
-"""Configuration file management for nerdy-doorkey."""
+"""Read and write the ``~/.nedok.toml`` configuration file.
+
+The configuration system is intentionally minimal: everything is stored in a
+single TOML file in the user's home directory.  New developers can follow this
+module to see how default values are merged with user overrides and how helper
+functions expose specific sections (colours, SSH credentials, session data).
+"""
 
 from __future__ import annotations
 
@@ -18,6 +24,9 @@ import tomli_w
 CONFIG_FILE = Path.home() / ".nedok.toml"
 
 # Default configuration
+# --------------------
+# The shape of this dictionary matches the TOML file on disk.  Each helper
+# function later in the module simply plucks out the section it cares about.
 DEFAULT_CONFIG = {
     "colors": {
         "file_mode": {

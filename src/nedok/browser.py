@@ -1,4 +1,10 @@
-"""Core dual pane browser logic."""
+"""Interactive dual-pane file browser.
+
+This module contains the high-level event loop that keeps Nerdy Doorkey running.
+It is intentionally described in plain language: new contributors should be able
+to trace how keyboard input is processed, how different features are grouped
+into mixins, and how the screen is redrawn after every change.
+"""
 
 from __future__ import annotations
 
@@ -36,6 +42,13 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
     """
 
     def __init__(self, left_root: Path, right_root: Path) -> None:
+        """Prepare both panes and all UI state before entering the main loop.
+
+        The constructor organises every state variable into small sections so it
+        is easy to see which feature owns which attributes.  Most attributes are
+        simple booleans or strings – they act as flags that toggle short-lived
+        modes (rename, create, SSH connection, and so on).
+        """
         self.left = _PaneState(current_dir=left_root.expanduser().resolve())
         self.right = _PaneState(current_dir=right_root.expanduser().resolve())
         self.active_index = 0
@@ -71,7 +84,7 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         self.ssh_available_credentials: Optional["_AvailableSSHCredentials"] = None
 
     def auto_reconnect_ssh(self, left_ssh: Optional[dict] = None, right_ssh: Optional[dict] = None) -> tuple[bool, bool]:
-        """Attempt to auto-reconnect SSH sessions from saved state.
+        """Attempt to recreate SSH sessions that were active during the last run.
 
         Args:
             left_ssh: Left pane SSH info dict (hostname, username, remote_directory)
@@ -141,7 +154,7 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         return left_connected, right_connected
 
     def browse(self) -> Tuple[Path, Path, Optional[dict], Optional[dict]]:
-        """Launch the UI and return the final directories and SSH connection info.
+        """Launch the curses UI and block here until the user quits.
 
         Returns:
             Tuple of (left_dir, right_dir, left_ssh_info, right_ssh_info)
@@ -153,7 +166,12 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
             raise DualPaneBrowserError("Failed to initialise curses UI.") from err
 
     def _loop(self, stdscr: "curses._CursesWindow") -> Tuple[Path, Path, Optional[dict], Optional[dict]]:  # type: ignore[name-defined]
-        """Main curses event loop."""
+        """Main curses event loop.
+
+        ``curses.wrapper`` calls this method and passes in the configured screen
+        object.  Every iteration reads exactly one key press, dispatches it to
+        the appropriate handler, and then repaints the entire interface.
+        """
         self._stdscr = stdscr
         curses.curs_set(0)
         curses.use_default_colors()

@@ -1,4 +1,16 @@
-"""Directory pane state and entry models."""
+"""Represent the contents of each pane shown in the browser.
+
+Two lightweight data classes live here:
+
+* :class:`_PaneEntry` describes a single row in the UI (file, directory, parent
+  link, and so on).
+* :class:`_PaneState` tracks the directory that a pane is currently displaying,
+  along with cursors, scroll offsets, and helper methods for refreshing data.
+
+The names are prefixed with an underscore to signal that they are internal
+implementation details.  They are still heavily documented so that new
+contributors can understand which attributes drive the interface.
+"""
 
 from __future__ import annotations
 
@@ -39,6 +51,7 @@ def _get_group_name(gid: int) -> str:
 
 @dataclass
 class _PaneEntry:
+    """A single row that can be rendered in a browser pane."""
     path: Union[Path, str]  # Path for local, str for remote
     is_dir: bool
     is_parent: bool = False
@@ -98,6 +111,7 @@ class _PaneEntry:
 
 @dataclass
 class _PaneState:
+    """Mutable state for a single pane (left or right)."""
     current_dir: Union[Path, str]  # Path for local, str for remote
     cursor_index: int = 0
     scroll_offset: int = 0

@@ -1,4 +1,11 @@
-"""Rendering helpers for the curses-based dual pane browser."""
+"""Convert the current application state into characters on the screen.
+
+Almost every function in this module receives the same ingredients: the shared
+``DualPaneBrowser`` instance, the curses window (`stdscr`), and the coordinates
+of the rectangle it should draw into.  The functions deliberately avoid any
+business logic so that new contributors can tweak the layout without worrying
+about file operations or Git behaviour.
+"""
 
 from __future__ import annotations
 
@@ -33,7 +40,15 @@ HELP_HINTS_HEIGHT = 3  # Height for permanent help hints display
 
 
 def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -> None:  # type: ignore[name-defined]
-    """Render the full dual-pane browser layout."""
+    """Render the full dual-pane browser layout.
+
+    The function follows the same pattern on every refresh:
+
+    1. Work out how much space each section of the interface should get.
+    2. Draw both panes (left and right) with headers and file listings.
+    3. Fill the bottom area with either the command console or a modal dialog.
+    4. Paint the one-line help strip and any pop-up overlays.
+    """
     height, width = stdscr.getmaxyx()
     stdscr.erase()
 

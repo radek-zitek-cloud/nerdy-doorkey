@@ -1,4 +1,4 @@
-"""SSH connection management for remote file browsing."""
+"""Wrap :mod:`paramiko` to make remote browsing feel like local browsing."""
 
 from __future__ import annotations
 
