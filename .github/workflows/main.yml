@@ -95,18 +95,14 @@ jobs:
             ## Installation
             
             ### Debian/Ubuntu x86_64 (Intel/AMD)
-```bash
             wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/nedok-linux-x86_64
             chmod +x nedok-linux-x86_64
             sudo mv nedok-linux-x86_64 /usr/local/bin/nedok
-```
             
             ### Debian/Ubuntu ARM64 (Raspberry Pi, etc.)
-```bash
             wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/nedok-linux-arm64
             chmod +x nedok-linux-arm64
             sudo mv nedok-linux-arm64 /usr/local/bin/nedok
-```
             
             Built on Debian 12 (Bookworm) - compatible with Debian 12+, Ubuntu 22.04+
         env:
