@@ -168,36 +168,87 @@ def render_rename_input(
     width: int,
 ) -> Optional[Tuple[int, int]]:
     """Render the rename input."""
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, "Rename")
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    draw_frame(stdscr, origin_y, origin_x, height, width, color_attr)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Rename", color_attr | curses.A_BOLD)
     interior_width = max(width - 2, 0)
     interior_height = max(height - 2, 0)
     if interior_width <= 0 or interior_height <= 0:
         return None
 
     prompt_x = origin_x + 1
-    prompt_y = origin_y + 1
+    start_y = origin_y + 1
 
     prompt_prefix = "Name> "
     prompt_text = f"{prompt_prefix}{browser.rename_buffer}"
-    truncated_prompt = truncate_end(prompt_text, interior_width)
-    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
-
-    status_y = prompt_y + 1
     status_text = browser.status_message or "Enter new name (Enter to confirm, Esc to cancel)"
-    stdscr.addnstr(
-        status_y,
-        prompt_x,
-        truncate_end(status_text, interior_width).ljust(interior_width),
-        interior_width,
-    )
+
+    # Fill all interior lines with dialog color
+    for index in range(interior_height):
+        y = start_y + index
+        if index == 0:
+            # Name input line
+            text = truncate_end(prompt_text, interior_width).ljust(interior_width)
+        elif index == 1:
+            # Status line
+            text = truncate_end(status_text, interior_width).ljust(interior_width)
+        else:
+            # Empty line
+            text = " " * interior_width
+        stdscr.addnstr(y, prompt_x, text, interior_width, color_attr)
 
     # Position cursor
     cursor_x = prompt_x + len(prompt_prefix) + len(browser.rename_buffer)
     max_cursor_x = prompt_x + interior_width - 1
     if cursor_x > max_cursor_x:
         cursor_x = max_cursor_x
-    return (prompt_y, cursor_x)
+    return (start_y, cursor_x)
+
+
+def render_command_input(
+    browser: "DualPaneBrowser",
+    stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
+    origin_y: int,
+    origin_x: int,
+    height: int,
+    width: int,
+) -> Optional[Tuple[int, int]]:
+    """Render the command input popup."""
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    draw_frame(stdscr, origin_y, origin_x, height, width, color_attr)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Execute Command", color_attr | curses.A_BOLD)
+    interior_width = max(width - 2, 0)
+    interior_height = max(height - 2, 0)
+    if interior_width <= 0 or interior_height <= 0:
+        return None
+
+    prompt_x = origin_x + 1
+    start_y = origin_y + 1
+
+    prompt_prefix = "$ "
+    prompt_text = f"{prompt_prefix}{browser.command_buffer}"
+    status_text = browser.status_message or "Enter shell command (Enter to execute, Esc to cancel)"
+
+    # Fill all interior lines with dialog color
+    for index in range(interior_height):
+        y = start_y + index
+        if index == 0:
+            # Command input line
+            text = truncate_end(prompt_text, interior_width).ljust(interior_width)
+        elif index == 1:
+            # Status line
+            text = truncate_end(status_text, interior_width).ljust(interior_width)
+        else:
+            # Empty line
+            text = " " * interior_width
+        stdscr.addnstr(y, prompt_x, text, interior_width, color_attr)
+
+    # Position cursor
+    cursor_x = prompt_x + len(prompt_prefix) + len(browser.command_buffer)
+    max_cursor_x = prompt_x + interior_width - 1
+    if cursor_x > max_cursor_x:
+        cursor_x = max_cursor_x
+    return (start_y, cursor_x)
 
 
 def render_create_input(
@@ -208,38 +259,43 @@ def render_create_input(
     height: int,
     width: int,
 ) -> Optional[Tuple[int, int]]:
-    """Render the create file/directory input."""
+    """Render the create file/directory input popup."""
     item_type = "Directory" if browser.create_is_dir else "File"
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, f"Create {item_type}")
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    draw_frame(stdscr, origin_y, origin_x, height, width, color_attr)
+    draw_frame_title(stdscr, origin_y, origin_x, width, f"Create {item_type}", color_attr | curses.A_BOLD)
     interior_width = max(width - 2, 0)
     interior_height = max(height - 2, 0)
     if interior_width <= 0 or interior_height <= 0:
         return None
 
     prompt_x = origin_x + 1
-    prompt_y = origin_y + 1
+    start_y = origin_y + 1
 
     prompt_prefix = "Name> "
     prompt_text = f"{prompt_prefix}{browser.create_buffer}"
-    truncated_prompt = truncate_end(prompt_text, interior_width)
-    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
-
-    status_y = prompt_y + 1
     status_text = browser.status_message or "Enter name (Enter to create, Esc to cancel)"
-    stdscr.addnstr(
-        status_y,
-        prompt_x,
-        truncate_end(status_text, interior_width).ljust(interior_width),
-        interior_width,
-    )
+
+    # Fill all interior lines with dialog color
+    for index in range(interior_height):
+        y = start_y + index
+        if index == 0:
+            # Name input line
+            text = truncate_end(prompt_text, interior_width).ljust(interior_width)
+        elif index == 1:
+            # Status line
+            text = truncate_end(status_text, interior_width).ljust(interior_width)
+        else:
+            # Empty line
+            text = " " * interior_width
+        stdscr.addnstr(y, prompt_x, text, interior_width, color_attr)
 
     # Position cursor
     cursor_x = prompt_x + len(prompt_prefix) + len(browser.create_buffer)
     max_cursor_x = prompt_x + interior_width - 1
     if cursor_x > max_cursor_x:
         cursor_x = max_cursor_x
-    return (prompt_y, cursor_x)
+    return (start_y, cursor_x)
 
 
 def render_ssh_connect_input(
@@ -251,15 +307,16 @@ def render_ssh_connect_input(
     width: int,
 ) -> Optional[Tuple[int, int]]:
     """Render the SSH connection input."""
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, "SSH Connect")
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    draw_frame(stdscr, origin_y, origin_x, height, width, color_attr)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "SSH Connect", color_attr | curses.A_BOLD)
     interior_width = max(width - 2, 0)
     interior_height = max(height - 2, 0)
     if interior_width <= 0 or interior_height <= 0:
         return None
 
     prompt_x = origin_x + 1
-    y = origin_y + 1
+    start_y = origin_y + 1
 
     # Field labels and values
     fields = [
@@ -271,34 +328,34 @@ def render_ssh_connect_input(
     cursor_y = None
     cursor_x = None
 
-    for index, (label, value) in enumerate(fields):
-        if y + index >= origin_y + interior_height:
-            break
+    status_text = "Tab: next field | Enter: connect/next | Esc: cancel"
 
-        # Determine if this field is active
-        is_active = (index == browser.ssh_input_field)
-        attr = curses.A_BOLD if is_active else curses.A_NORMAL
+    # Fill all interior lines with dialog color
+    for index in range(interior_height):
+        y = start_y + index
+        if index < len(fields):
+            # Field input line
+            label, value = fields[index]
+            is_active = (index == browser.ssh_input_field)
+            attr = color_attr | (curses.A_BOLD if is_active else curses.A_NORMAL)
+            prompt_text = f"{label}{value}"
+            text = truncate_end(prompt_text, interior_width).ljust(interior_width)
 
-        prompt_text = f"{label}{value}"
-        truncated_prompt = truncate_end(prompt_text, interior_width)
-        stdscr.addnstr(y + index, prompt_x, truncated_prompt.ljust(interior_width), interior_width, attr)
+            # Store cursor position for active field
+            if is_active:
+                cursor_y = y
+                cursor_x = prompt_x + len(label) + len(value)
+                cursor_x = min(cursor_x, prompt_x + interior_width - 1)
+        elif index == 4:
+            # Status line at index 4
+            attr = color_attr
+            text = truncate_end(status_text, interior_width).ljust(interior_width)
+        else:
+            # Empty line
+            attr = color_attr
+            text = " " * interior_width
 
-        # Store cursor position for active field
-        if is_active:
-            cursor_y = y + index
-            cursor_x = prompt_x + len(label) + len(value)
-            cursor_x = min(cursor_x, prompt_x + interior_width - 1)
-
-    # Status line
-    status_y = y + 4
-    if status_y < origin_y + interior_height:
-        status_text = "Tab: next field | Enter: connect/next | Esc: cancel"
-        stdscr.addnstr(
-            status_y,
-            prompt_x,
-            truncate_end(status_text, interior_width).ljust(interior_width),
-            interior_width,
-        )
+        stdscr.addnstr(y, prompt_x, text, interior_width, attr)
 
     if cursor_y is not None and cursor_x is not None:
         return (cursor_y, cursor_x)

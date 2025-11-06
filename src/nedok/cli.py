@@ -21,7 +21,7 @@ from pathlib import Path
 from nedok import DualPaneBrowser, DualPaneBrowserError
 from nedok.config import get_last_session, save_session
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 # Crash dump file location
 CRASH_LOG_FILE = Path.home() / "nedok.crash.txt"

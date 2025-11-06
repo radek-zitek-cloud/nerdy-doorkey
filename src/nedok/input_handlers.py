@@ -345,8 +345,12 @@ class InputHandlersMixin:
         self.in_command_mode = False
         self.command_buffer = ""
         if not command:
+            self._add_console_message("No command entered.")
             self.status_message = "No command entered."
             return
+
+        # Add command to console
+        self._add_console_message(f"$ {command}")
 
         # Handle local or remote command execution
         pane = self._active_pane
@@ -360,10 +364,17 @@ class InputHandlersMixin:
                 stderr_text = stderr.read().decode('utf-8', errors='replace')
                 exit_code = stdout.channel.recv_exit_status()
 
-                self.command_output = self._format_command_output(stdout_text, stderr_text)
-                self.status_message = f"Remote command exited with code {exit_code}."
+                # Add output to console
+                output_lines = self._format_command_output(stdout_text, stderr_text)
+                for line in output_lines:
+                    self.console_buffer.append(line)
+
+                message = f"Remote command exited with code {exit_code}."
+                self._add_console_message(message)
+                self.status_message = message
             except Exception as err:
-                self.command_output = [f"Failed to run remote command: {err}"]
+                message = f"Failed to run remote command: {err}"
+                self._add_console_message(message)
                 self.status_message = "Remote command execution failed."
         else:
             # Execute command locally
@@ -377,12 +388,19 @@ class InputHandlersMixin:
                     env=os.environ.copy(),
                 )
             except OSError as err:
-                self.command_output = [f"Failed to run command: {err}"]
+                message = f"Failed to run command: {err}"
+                self._add_console_message(message)
                 self.status_message = "Command execution failed."
                 return
 
-            self.command_output = self._format_command_output(result.stdout, result.stderr)
-            self.status_message = f"Command exited with code {result.returncode}."
+            # Add output to console
+            output_lines = self._format_command_output(result.stdout, result.stderr)
+            for line in output_lines:
+                self.console_buffer.append(line)
+
+            message = f"Command exited with code {result.returncode}."
+            self._add_console_message(message)
+            self.status_message = message
 
     def _start_ssh_connect(self) -> None:
         """Start SSH connection input mode."""
