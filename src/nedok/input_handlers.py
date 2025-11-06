@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional
 
-from nedok.modes import ALL_MODES
+from nedok.modes import ALL_MODES, BrowserMode
 
 if TYPE_CHECKING:
     pass
@@ -127,10 +127,14 @@ class InputHandlersMixin:
             if before_dir != pane.current_dir:
                 self.status_message = None
             return True
+        if key_code == ord("+") and self._expand_tree_cursor():
+            return True
+        if key_code == ord("-") and self._collapse_tree_cursor():
+            return True
         if key_code in (curses.KEY_BACKSPACE, 127, 8):
             try:
                 pane.go_to_parent()
-                pane.refresh_entries(self.mode)
+                self._refresh_pane(pane)
                 self.status_message = None
             except PermissionError as err:
                 self.status_message = str(err)
@@ -167,7 +171,7 @@ class InputHandlersMixin:
                     if candidate is not self.mode:
                         self.mode = candidate
                         for pane in (self.left, self.right):
-                            pane.refresh_entries(self.mode)
+                            self._refresh_pane(pane)
                         self.status_message = f"Switched to {self.mode.label} mode."
                     else:
                         self.status_message = f"Already in {self.mode.label} mode."
@@ -297,12 +301,32 @@ class InputHandlersMixin:
         """Refresh the active pane to reload directory contents."""
         pane = self._active_pane
         try:
-            pane.refresh_entries(self.mode)
+            self._refresh_pane(pane)
             self.status_message = f"Refreshed {pane.current_dir}"
         except PermissionError as err:
             self.status_message = str(err)
         except FileNotFoundError as err:
             self.status_message = str(err)
+
+    def _expand_tree_cursor(self) -> bool:
+        """Expand the selected directory when tree mode is active."""
+        pane = self._active_pane
+        if self.mode is not BrowserMode.TREE or not getattr(pane, "tree_mode_enabled", False):
+            return False
+        if pane.expand_tree_at_cursor():
+            self._refresh_pane(pane)
+            return True
+        return False
+
+    def _collapse_tree_cursor(self) -> bool:
+        """Collapse the selected directory or its parent when in tree mode."""
+        pane = self._active_pane
+        if self.mode is not BrowserMode.TREE or not getattr(pane, "tree_mode_enabled", False):
+            return False
+        if pane.collapse_tree_at_cursor():
+            self._refresh_pane(pane)
+            return True
+        return False
 
     def _start_command_mode(self) -> None:
         """Switch to command entry mode."""
@@ -445,7 +469,7 @@ class InputHandlersMixin:
             pane.current_dir = "/"
             pane.cursor_index = 0
             pane.scroll_offset = 0
-            pane.refresh_entries(self.mode)
+            self._refresh_pane(pane)
 
             self.status_message = f"Connected to {user}@{host}"
 
@@ -500,7 +524,7 @@ class InputHandlersMixin:
             pane.current_dir = Path.home()
             pane.cursor_index = 0
             pane.scroll_offset = 0
-            pane.refresh_entries(self.mode)
+            self._refresh_pane(pane)
             self.status_message = "Disconnected from SSH."
         except Exception as err:
             self.status_message = f"Error disconnecting: {err}"

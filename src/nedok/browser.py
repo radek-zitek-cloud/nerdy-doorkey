@@ -164,7 +164,7 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         init_colors()
 
         for pane in (self.left, self.right):
-            pane.refresh_entries(self.mode)
+            self._refresh_pane(pane)
 
         try:
             while True:
@@ -259,12 +259,21 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
             self.show_help = False
             self.in_mode_prompt = False
             for pane in (self.left, self.right):
-                pane.refresh_entries(self.mode)
+                self._refresh_pane(pane)
+
+    def _refresh_pane(self, pane: _PaneState) -> None:
+        """Refresh a single pane, enabling tree mode when appropriate."""
+        pane.tree_mode_enabled = (
+            self.mode is BrowserMode.TREE
+            and pane is self.left
+            and not pane.is_remote
+        )
+        pane.refresh_entries(self.mode)
 
     def _refresh_panes(self) -> None:
         """Refresh both panes to reflect filesystem changes."""
         for pane in (self.left, self.right):
-            pane.refresh_entries(self.mode)
+            self._refresh_pane(pane)
 
     @property
     def _active_pane(self) -> _PaneState:

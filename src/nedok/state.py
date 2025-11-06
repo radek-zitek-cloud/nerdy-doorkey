@@ -9,7 +9,7 @@ import stat
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path, PurePosixPath
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from nedok.formatting import format_size, format_timestamp
 from nedok.git_status import collect_git_status
@@ -52,6 +52,10 @@ class _PaneEntry:
     is_remote: bool = False
     owner_user: Optional[str] = None
     owner_group: Optional[str] = None
+    tree_depth: int = 0
+    tree_parent_path: Optional[Path] = None
+    tree_is_collapsed: bool = False
+    tree_is_expanded: bool = False
 
     @property
     def display_name(self) -> str:
@@ -99,6 +103,8 @@ class _PaneState:
     scroll_offset: int = 0
     entries: List[_PaneEntry] = field(default_factory=list)
     ssh_connection: Optional[SSHConnection] = None
+    tree_mode_enabled: bool = False
+    tree_collapsed_paths: Set[Path] = field(default_factory=set)
 
     @property
     def is_remote(self) -> bool:
@@ -114,6 +120,9 @@ class _PaneState:
 
     def refresh_entries(self, mode: BrowserMode) -> None:
         """Populate `entries` with directory contents."""
+        if self.tree_mode_enabled and not self.is_remote and mode is BrowserMode.TREE:
+            self._refresh_tree_entries()
+            return
         if self.is_remote:
             self._refresh_remote_entries(mode)
         else:
@@ -183,6 +192,69 @@ class _PaneState:
         self.cursor_index = min(self.cursor_index, max(len(self.entries) - 1, 0))
         self.scroll_offset = min(self.scroll_offset, max(len(self.entries) - 1, 0))
 
+    def _refresh_tree_entries(self) -> None:
+        """Populate entries with a recursive tree of the current directory."""
+        current = Path(self.current_dir)
+        try:
+            root = current.resolve()
+        except OSError:
+            root = current
+
+        self._prune_tree_state(root)
+
+        items: List[_PaneEntry] = []
+
+        def add_children(directory: Path, depth: int) -> None:
+            try:
+                children = sorted(directory.iterdir(), key=self._sort_key)
+            except (PermissionError, FileNotFoundError, NotADirectoryError, OSError):
+                return
+
+            for child in children:
+                entry = self._build_entry(child)
+                entry.tree_depth = depth
+                entry.tree_parent_path = directory
+                normalized_child = self._normalize_tree_path(child)
+                is_collapsed = (
+                    normalized_child in self.tree_collapsed_paths
+                    if normalized_child is not None
+                    else False
+                )
+                entry.tree_is_collapsed = entry.is_dir and is_collapsed
+                entry.tree_is_expanded = entry.is_dir and not is_collapsed
+                items.append(entry)
+                if entry.is_dir and not is_collapsed:
+                    add_children(child, depth + 1)
+
+        add_children(root, 0)
+
+        self.entries = items
+        self.cursor_index = min(self.cursor_index, max(len(self.entries) - 1, 0))
+        self.scroll_offset = min(self.scroll_offset, max(len(self.entries) - 1, 0))
+
+    def _normalize_tree_path(self, path: Path) -> Optional[Path]:
+        """Return a resolved version of `path` when possible."""
+        try:
+            return path.resolve()
+        except OSError:
+            return path
+
+    def _prune_tree_state(self, root: Path) -> None:
+        """Drop cached collapsed paths that are no longer under `root`."""
+        normalized_root = self._normalize_tree_path(root) or root
+        filtered: Set[Path] = set()
+        for candidate in self.tree_collapsed_paths:
+            normalized = self._normalize_tree_path(candidate) or candidate
+            try:
+                parents = normalized.parents
+            except AttributeError:
+                continue
+            if normalized == normalized_root:
+                continue
+            if normalized_root in parents:
+                filtered.add(normalized)
+        self.tree_collapsed_paths = filtered
+
     @staticmethod
     def _sort_key(path: Path) -> Tuple[int, str]:
         """Directories come first, then files alphabetically."""
@@ -212,6 +284,48 @@ class _PaneState:
         max_offset = max(len(self.entries) - viewport_height, 0)
         self.scroll_offset = max(0, min(self.scroll_offset, max_offset))
 
+    def expand_tree_at_cursor(self) -> bool:
+        """Expand the currently selected directory in tree mode."""
+        if not self.tree_mode_enabled:
+            return False
+        entry = self.selected_entry()
+        if entry is None or not entry.is_dir or not isinstance(entry.path, Path):
+            return False
+        normalized = self._normalize_tree_path(entry.path)
+        if normalized is None:
+            return False
+        if normalized in self.tree_collapsed_paths:
+            self.tree_collapsed_paths.remove(normalized)
+            return True
+        return False
+
+    def collapse_tree_at_cursor(self) -> bool:
+        """Collapse the selected directory or its parent in tree mode."""
+        if not self.tree_mode_enabled:
+            return False
+
+        entry = self.selected_entry()
+        if entry is None:
+            return False
+
+        target_path: Optional[Path] = None
+        if entry.is_dir and isinstance(entry.path, Path):
+            target_path = entry.path
+        elif entry.tree_parent_path is not None:
+            target_path = entry.tree_parent_path
+
+        if target_path is None:
+            return False
+
+        normalized_target = self._normalize_tree_path(target_path)
+        normalized_root = self._normalize_tree_path(Path(self.current_dir)) or Path(self.current_dir)
+        if normalized_target is None or normalized_target == normalized_root:
+            return False
+        if normalized_target not in self.tree_collapsed_paths:
+            self.tree_collapsed_paths.add(normalized_target)
+            return True
+        return False
+
     def selected_entry(self) -> _PaneEntry | None:
         """Return currently highlighted entry."""
         if not self.entries:
@@ -230,6 +344,8 @@ class _PaneState:
                 self.current_dir = Path(entry.path).resolve()
             self.cursor_index = 0
             self.scroll_offset = 0
+            if self.tree_mode_enabled:
+                self.tree_collapsed_paths.clear()
             self.refresh_entries(mode)
 
     def go_to_parent(self) -> None:
@@ -244,6 +360,8 @@ class _PaneState:
             self.current_dir = Path(self.current_dir).parent
         self.cursor_index = 0
         self.scroll_offset = 0
+        if self.tree_mode_enabled:
+            self.tree_collapsed_paths.clear()
 
     def _build_entry(self, path: Path, *, is_parent: bool = False) -> _PaneEntry:
         """Construct a pane entry for the given path."""

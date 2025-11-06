@@ -38,3 +38,8 @@ def test_help_lines_cover_shortcuts():
 
     # Check that mode switching is mentioned
     assert "mode" in git_text
+
+    tree_lines = build_help_lines(BrowserMode.TREE)
+    tree_text = "\n".join(tree_lines).lower()
+    assert "+" in tree_text and "-" in tree_text
+    assert "tree" in tree_text
