@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-01-06
+
+### Added
+- **Comprehensive test suite** – Added 38 new test cases across 3 new test files
+  - `test_modes.py` (5 tests): BrowserMode enum, labels, iteration
+  - `test_colors.py` (19 tests): File/git color logic for all file types and git statuses
+  - `test_state.py` (17 tests): PaneEntry display, PaneState initialization, entry sorting
+- **Enhanced config tests** – Added 10 comprehensive tests to test_config.py
+  - SSH credentials save/load (with and without password)
+  - Session state persistence and SSH connection state management
+  - Config file save/load, merge logic, error handling
+- **Version synchronization** – All version locations now updated together
+  - Added explicit VERSION file tracking
+  - Synchronized pyproject.toml, VERSION, __init__.py, cli.py
+
+### Changed
+- **Documentation architecture** – Renamed CLAUDE.md to ARCHITECTURE.md
+  - More discoverable for human developers
+  - Follows standard open source conventions
+  - Still fully usable by AI assistants
+- **Documentation accuracy** – Updated all line counts and module descriptions
+  - Accurate file sizes for all 17 modules
+  - Complete feature documentation (Tree mode, Owner mode, configuration system)
+  - Added documentation for render_dialogs.py, render_utils.py, config.py
+- **Improved release process** – Updated VERSIONING.md with comprehensive checklist
+  - Explicit version bump locations (4 files that must be synchronized)
+  - Clear explanation of why all locations must be updated
+  - Prevents version mismatch between pip and runtime
+
+### Fixed
+- **Version consistency** – Fixed version mismatch between pip installation and runtime
+  - pip installs version from pyproject.toml
+  - Runtime reports version from __init__.py and cli.py
+  - All now synchronized to prevent confusion
+
+### Technical
+- Total test suite: 79 tests (all passing ✅)
+- Test coverage: All core modules comprehensively tested
+- Documentation: 4,095 source lines accurately documented
+
 ## [0.4.4] - 2025-11-06
 
 ### Fixed

@@ -1,9 +1,32 @@
 # Nerdy Doorkey Configuration File
 # Copy this file to ~/.nedok.toml to customize settings
 
-# Color Schemes
-# Available colors: blue_bold, green_bold, cyan, gray_dim, yellow, white, red_bold, red
+# ============================================================================
+# COLOR CONFIGURATION
+# ============================================================================
 # You can customize which colors are used for different file types and git statuses
+#
+# Available color keywords for file_mode and git_mode:
+#   blue_bold    - Bold blue (default for directories)
+#   green_bold   - Bold green (default for executables and staged files)
+#   cyan         - Cyan (default for symlinks and renamed files)
+#   gray_dim     - Dimmed gray (default for hidden files and clean git files)
+#   yellow       - Yellow (default for readonly and modified unstaged files)
+#   white        - White (default for regular files)
+#   red_bold     - Bold red (default for untracked files)
+#   red          - Red (default for deleted files)
+#
+# Available color keywords for dialog popups (foreground/background):
+#   black        - Black
+#   red          - Red
+#   green        - Green
+#   yellow       - Yellow
+#   blue         - Blue
+#   magenta      - Magenta
+#   cyan         - Cyan
+#   white        - White
+#   default      - Terminal default color
+# ============================================================================
 
 [colors.file_mode]
 directory = "blue_bold"       # Directories
@@ -24,7 +47,8 @@ directory = "blue_bold"       # Directories (always blue in git mode)
 
 [colors.dialog]
 # Configure confirmation popup colors (foreground/background)
-# Allowed values: black, red, green, yellow, blue, magenta, cyan, white, default
+# Use simple color names (not _bold or _dim variants)
+# See color keyword list above for available values
 foreground = "black"
 background = "cyan"
 

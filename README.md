@@ -197,7 +197,7 @@ Nerdy Doorkey supports a configuration file at `~/.nedok.toml` for customizing:
 - Saved SSH credentials
 - Session state (last used directories)
 
-**Example configuration:**
+**Quick Start:**
 ```bash
 # Copy example config to home directory
 cp .nedok.toml.example ~/.nedok.toml
@@ -207,6 +207,55 @@ nano ~/.nedok.toml
 ```
 
 See `.nedok.toml.example` in the repository for full configuration options.
+
+#### Color Customization
+
+You can customize colors for file types, git statuses, and dialog popups in `~/.nedok.toml`.
+
+**Available color keywords for file_mode and git_mode:**
+
+| Keyword | Description | Default Usage |
+|---------|-------------|---------------|
+| `blue_bold` | Bold blue | Directories |
+| `green_bold` | Bold green | Executable files, staged git files |
+| `cyan` | Cyan | Symbolic links, renamed files |
+| `gray_dim` | Dimmed gray | Hidden files (dotfiles), clean git files |
+| `yellow` | Yellow | Read-only files, modified unstaged git files |
+| `white` | White | Regular files with write permission |
+| `red_bold` | Bold red | Untracked git files (??) |
+| `red` | Red | Deleted git files |
+
+**Available color keywords for dialog popups:**
+
+| Keyword | Description |
+|---------|-------------|
+| `black` | Black |
+| `red` | Red |
+| `green` | Green |
+| `yellow` | Yellow |
+| `blue` | Blue |
+| `magenta` | Magenta |
+| `cyan` | Cyan |
+| `white` | White |
+| `default` | Terminal default color |
+
+**Example customization:**
+```toml
+[colors.file_mode]
+directory = "cyan"          # Change directories to cyan
+executable = "yellow"       # Change executables to yellow
+hidden = "blue_bold"        # Make hidden files bold blue
+
+[colors.git_mode]
+untracked = "yellow"        # Less aggressive for untracked files
+staged = "blue_bold"        # Highlight staged files differently
+
+[colors.dialog]
+foreground = "white"        # White text on dialogs
+background = "blue"         # Blue background for dialogs
+```
+
+**Note**: Dialog colors use simple color names (not `_bold` or `_dim` variants).
 
 ### Session Management
 
