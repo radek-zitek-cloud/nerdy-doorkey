@@ -168,8 +168,9 @@ def render_rename_input(
     width: int,
 ) -> Optional[Tuple[int, int]]:
     """Render the rename input."""
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, "Rename")
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    draw_frame(stdscr, origin_y, origin_x, height, width, color_attr)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Rename", color_attr | curses.A_BOLD)
     interior_width = max(width - 2, 0)
     interior_height = max(height - 2, 0)
     if interior_width <= 0 or interior_height <= 0:
@@ -181,7 +182,7 @@ def render_rename_input(
     prompt_prefix = "Name> "
     prompt_text = f"{prompt_prefix}{browser.rename_buffer}"
     truncated_prompt = truncate_end(prompt_text, interior_width)
-    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
+    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width, color_attr)
 
     status_y = prompt_y + 1
     status_text = browser.status_message or "Enter new name (Enter to confirm, Esc to cancel)"
@@ -190,6 +191,7 @@ def render_rename_input(
         prompt_x,
         truncate_end(status_text, interior_width).ljust(interior_width),
         interior_width,
+        color_attr,
     )
 
     # Position cursor
@@ -209,8 +211,9 @@ def render_command_input(
     width: int,
 ) -> Optional[Tuple[int, int]]:
     """Render the command input popup."""
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, "Execute Command")
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    draw_frame(stdscr, origin_y, origin_x, height, width, color_attr)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Execute Command", color_attr | curses.A_BOLD)
     interior_width = max(width - 2, 0)
     interior_height = max(height - 2, 0)
     if interior_width <= 0 or interior_height <= 0:
@@ -222,7 +225,7 @@ def render_command_input(
     prompt_prefix = "$ "
     prompt_text = f"{prompt_prefix}{browser.command_buffer}"
     truncated_prompt = truncate_end(prompt_text, interior_width)
-    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
+    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width, color_attr)
 
     status_y = prompt_y + 1
     status_text = browser.status_message or "Enter shell command (Enter to execute, Esc to cancel)"
@@ -231,6 +234,7 @@ def render_command_input(
         prompt_x,
         truncate_end(status_text, interior_width).ljust(interior_width),
         interior_width,
+        color_attr,
     )
 
     # Position cursor
@@ -251,8 +255,9 @@ def render_create_input(
 ) -> Optional[Tuple[int, int]]:
     """Render the create file/directory input popup."""
     item_type = "Directory" if browser.create_is_dir else "File"
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, f"Create {item_type}")
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    draw_frame(stdscr, origin_y, origin_x, height, width, color_attr)
+    draw_frame_title(stdscr, origin_y, origin_x, width, f"Create {item_type}", color_attr | curses.A_BOLD)
     interior_width = max(width - 2, 0)
     interior_height = max(height - 2, 0)
     if interior_width <= 0 or interior_height <= 0:
@@ -264,7 +269,7 @@ def render_create_input(
     prompt_prefix = "Name> "
     prompt_text = f"{prompt_prefix}{browser.create_buffer}"
     truncated_prompt = truncate_end(prompt_text, interior_width)
-    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
+    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width, color_attr)
 
     status_y = prompt_y + 1
     status_text = browser.status_message or "Enter name (Enter to create, Esc to cancel)"
@@ -273,6 +278,7 @@ def render_create_input(
         prompt_x,
         truncate_end(status_text, interior_width).ljust(interior_width),
         interior_width,
+        color_attr,
     )
 
     # Position cursor
@@ -292,8 +298,9 @@ def render_ssh_connect_input(
     width: int,
 ) -> Optional[Tuple[int, int]]:
     """Render the SSH connection input."""
-    draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, "SSH Connect")
+    color_attr = curses.color_pair(ColorPair.DIALOG)
+    draw_frame(stdscr, origin_y, origin_x, height, width, color_attr)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "SSH Connect", color_attr | curses.A_BOLD)
     interior_width = max(width - 2, 0)
     interior_height = max(height - 2, 0)
     if interior_width <= 0 or interior_height <= 0:
@@ -318,7 +325,7 @@ def render_ssh_connect_input(
 
         # Determine if this field is active
         is_active = (index == browser.ssh_input_field)
-        attr = curses.A_BOLD if is_active else curses.A_NORMAL
+        attr = color_attr | (curses.A_BOLD if is_active else curses.A_NORMAL)
 
         prompt_text = f"{label}{value}"
         truncated_prompt = truncate_end(prompt_text, interior_width)
@@ -339,6 +346,7 @@ def render_ssh_connect_input(
             prompt_x,
             truncate_end(status_text, interior_width).ljust(interior_width),
             interior_width,
+            color_attr,
         )
 
     if cursor_y is not None and cursor_x is not None:
