@@ -68,6 +68,11 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 ## Version History
 
+- **v0.4.4** (2025-11-06): Fix workflow permissions for releases
+  - Added permissions: contents: write to workflow
+  - Fixes 403 error when creating GitHub releases
+  - Binaries successfully built and attached to releases
+
 - **v0.4.3** (2025-11-06): Add missing spec file to repository
   - Added nedok.spec to git (was previously ignored by .gitignore)
   - Fixes GitHub Actions workflow build failures
