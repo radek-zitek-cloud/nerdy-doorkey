@@ -25,3 +25,10 @@
 
 - 2025-11-06: Improved Tab key behavior to toggle between panes:
   Changed Tab key from always switching to right pane to toggling back and forth between left and right panes (using `1 - active_index`). Arrow keys (←/→) and Shift+Tab still provide direct pane selection. Updated README.md and COMMANDS.md documentation. All tests pass (21/21). Committed and pushed to GitHub (commit 181b1a1).
+
+- 2025-11-06: Implemented SSH session persistence and auto-reconnect:
+  1. Session State Persistence - Save SSH connection details (hostname, username, remote directory) to ~/.nedok.toml under [session.left_ssh] and [session.right_ssh], saved automatically when exiting with active SSH connections
+  2. Auto-Reconnect on Startup - Automatically attempts to reconnect to saved SSH sessions, tries SSH agent keys first then saved credentials, graceful fallback to local directory if connection fails
+  3. Implementation - Added get_last_session() and save_session() to config.py, modified browser.browse() to return SSH state, added browser.auto_reconnect_ssh() method, updated main.py to load and restore SSH sessions with user feedback (✓ Reconnected / ⚠ Could not reconnect)
+  4. Documentation - Updated README.md Session Management section with SSH persistence details, updated .nedok.toml.example with SSH session format examples
+  Provides seamless workflow: exit with SSH connected, restart automatically reconnected. All tests pass (21/21). Committed and pushed to GitHub (commit 09f4dd3).
