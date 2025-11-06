@@ -1,14 +1,12 @@
 name: Build Binaries
-
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
-
 jobs:
   build-x86_64:
-    runs-on: ubuntu-latest  # GitHub runner (we use Docker inside)
+    runs-on: ubuntu-latest
     
     steps:
       - uses: actions/checkout@v4
