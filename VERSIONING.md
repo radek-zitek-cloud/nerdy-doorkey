@@ -58,15 +58,67 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 ## Release Process
 
-1. Update `VERSION` file with new version number
-2. Update `CHANGELOG.md` with release notes
-3. Update version in `src/nedok/cli.py` and `__init__.py`
-4. Commit changes: `git commit -m "Bump version to vX.Y.Z"`
-5. Create git tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
-6. Push changes: `git push origin main --tags`
-7. Create GitHub release from tag with changelog notes
+**IMPORTANT**: All version locations must be updated together to avoid mismatches between pip installation version and runtime `__version__`.
+
+### Version Bump Checklist
+
+1. **Update version in ALL locations** (critical - avoid version mismatch):
+   - `pyproject.toml` - Line 3: `version = "X.Y.Z"`
+   - `VERSION` file - Single line with version number
+   - `src/nedok/__init__.py` - `__version__ = "X.Y.Z"`
+   - `src/nedok/cli.py` - `__version__ = "X.Y.Z"`
+
+2. **Update CHANGELOG.md** with release notes:
+   - Add new `## [X.Y.Z] - YYYY-MM-DD` section
+   - List all changes, features, and fixes
+
+3. **Update VERSIONING.md**:
+   - Add entry to Version History section with date and description
+
+4. **Commit all changes together**:
+   ```bash
+   git add pyproject.toml VERSION src/nedok/__init__.py src/nedok/cli.py CHANGELOG.md VERSIONING.md
+   git commit -m "Bump version to X.Y.Z
+
+   - Brief description of release
+   - Major changes listed here
+
+   🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+   Co-Authored-By: Claude <noreply@anthropic.com>"
+   ```
+
+5. **Create git tag**:
+   ```bash
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   ```
+
+6. **Push changes and tag**:
+   ```bash
+   git push origin <branch> && git push origin vX.Y.Z
+   ```
+
+7. **Create GitHub release** from tag with changelog notes
+
+### Why Update All Locations?
+
+- **pyproject.toml**: Controls what version pip installs
+- **VERSION**: Used by build scripts and documentation
+- **__init__.py**: Exported as `nedok.__version__` for programmatic access
+- **cli.py**: Displayed in `--version` flag and error messages
+
+**Failure to update all locations causes confusion** where `pip show nedok` shows one version but the running code reports another.
 
 ## Version History
+
+- **v0.5.0** (2025-01-06): Documentation overhaul and comprehensive test suite
+  - Renamed CLAUDE.md to ARCHITECTURE.md for better discoverability
+  - Updated all documentation with accurate line counts and module descriptions
+  - Added 38 new test cases across 3 new test files (test_modes.py, test_colors.py, test_state.py)
+  - Enhanced test_config.py with 10 additional comprehensive tests
+  - Total test suite: 79 tests covering all core modules
+  - Fixed version synchronization across all files (pyproject.toml, VERSION, __init__.py, cli.py)
+  - Updated VERSIONING.md with improved release process checklist
 
 - **v0.4.4** (2025-11-06): Fix workflow permissions for releases
   - Added permissions: contents: write to workflow
