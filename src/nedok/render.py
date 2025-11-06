@@ -131,6 +131,17 @@ def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -
             browser, stdscr, popup_y, popup_x, popup_height, popup_width
         )
 
+    # SSH connect input popup (centered)
+    ssh_popup_cursor = None
+    if browser.in_ssh_connect_mode:
+        popup_height = 8
+        popup_width = min(60, width - 4)
+        popup_y = max((height - popup_height) // 2, 0)
+        popup_x = max((width - popup_width) // 2, 0)
+        ssh_popup_cursor = render_ssh_connect_input(
+            browser, stdscr, popup_y, popup_x, popup_height, popup_width
+        )
+
     if browser.pending_action:
         render_confirmation_overlay(browser, stdscr, height, width)
 
@@ -146,6 +157,11 @@ def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -
     if command_popup_cursor is not None and browser.in_command_mode:
         try:
             stdscr.move(*command_popup_cursor)
+        except curses.error:
+            pass
+    elif ssh_popup_cursor is not None and browser.in_ssh_connect_mode:
+        try:
+            stdscr.move(*ssh_popup_cursor)
         except curses.error:
             pass
     elif command_cursor is not None and show_cursor:
@@ -317,8 +333,6 @@ def render_command_area(
         return None
 
     # Modal dialogs take over the command area
-    if browser.in_ssh_connect_mode:
-        return render_ssh_connect_input(browser, stdscr, origin_y, origin_x, height, width)
     if browser.show_help:
         return render_help_panel(browser, stdscr, origin_y, origin_x, height, width)
     if browser.in_rename_mode:
