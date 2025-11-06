@@ -1,6 +1,6 @@
-# CLAUDE.md
+# Architecture Documentation
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This document describes the technical architecture, design patterns, and development guidelines for the Nerdy Doorkey file browser.
 
 ## Project Overview
 
@@ -39,11 +39,13 @@ This is a dual-pane terminal-based file browser built with Python curses. The ap
 
 **UI Features:**
 - Dual-pane layout with independent navigation
-- Switch between File mode and Git mode (m)
+- Switch between File, Git, and Owner modes (m)
 - Context-sensitive help (h)
 - Confirmation dialogs for destructive operations
 - Status messages and command output display
 - Color-coded file display (mode-specific)
+- Configuration file support (~/.nedok.toml)
+- Session persistence (save/restore state including SSH connections)
 
 **Color Scheme:**
 - File mode: Blue directories (bold), green executables (bold), cyan symlinks, gray hidden files, yellow readonly files
@@ -87,7 +89,7 @@ poetry add --group dev <package>  # for test/dev deps
 
 **Architecture:** Mixin-based design for separation of concerns
 
-**`src/nedok/browser.py`** (141 lines) - Core orchestration:
+**`src/nedok/browser.py`** (280 lines) - Core orchestration:
 - `DualPaneBrowser`: Main class using three mixins for functionality
 - Manages core state: two `_PaneState` instances (left/right), mode, overlays, buffers
 - Event loop (`_loop`) dispatches keypresses to handlers in priority order
@@ -95,14 +97,14 @@ poetry add --group dev <package>  # for test/dev deps
 - Properties: `_active_pane`, `_inactive_pane`
 - **Delegates all operations to mixins** (see below)
 
-**`src/nedok/input_handlers.py`** (~440 lines) - InputHandlersMixin:
+**`src/nedok/input_handlers.py`** (674 lines) - InputHandlersMixin:
 - All keyboard input handling methods:
   - `_handle_confirmation_key`: Y/N confirmation for destructive actions
   - `_handle_ssh_connect_key`: SSH connection dialog input (Tab between fields, Enter to connect)
   - `_handle_host_field_exit`: Detects saved credentials or SSH-agent availability after hostname entry and prompts user to reuse or override them
   - `_handle_rename_key`: Rename input handling
   - `_handle_create_key`: File/directory creation input handling
-  - `_handle_mode_selection_key`: Mode prompt overlay (F/G to switch)
+  - `_handle_mode_selection_key`: Mode prompt overlay (F/G/O to switch between File/Git/Owner modes)
   - `_handle_command_key`: Shell command input (ESC to cancel, Enter to execute)
   - `_handle_navigation_key`: Normal browsing (j/k, Enter, backspace, tab, PgUp/PgDn, Shift+S for SSH)
   - `_handle_mode_command`: Dispatches to file or git operations based on key
@@ -110,7 +112,7 @@ poetry add --group dev <package>  # for test/dev deps
 - SSH connection management (`_start_ssh_connect()`, `_execute_ssh_connect()`)
 - Confirmation request system (`_request_confirmation()`)
 
-**`src/nedok/file_operations.py`** (~475 lines) - FileOperationsMixin:
+**`src/nedok/file_operations.py`** (527 lines) - FileOperationsMixin:
 - File operation methods supporting both local and remote:
   - `_delete_entry()`: Delete with confirmation (local or remote, recursive for directories)
   - `_copy_entry()`: Universal copy supporting all combinations (local↔local, local↔remote, remote↔local, remote↔remote)
@@ -141,7 +143,7 @@ poetry add --group dev <package>  # for test/dev deps
 - All pager operations write to temp files with color support (less -R)
 - External commands suspend curses, run synchronously, then refresh
 
-**`src/nedok/state.py`** - Pane state management:
+**`src/nedok/state.py`** (404 lines) - Pane state management:
 - `_PaneState`: Directory listing, cursor position, scroll offset, entry list, SSH connection
 - `_PaneEntry`: File/directory metadata (path, size, mode, timestamp, git status, is_executable, is_symlink, is_readonly, is_remote)
 - Entries sorted with directories first, then alphabetically
@@ -152,23 +154,25 @@ poetry add --group dev <package>  # for test/dev deps
 - Cursor visibility managed by `ensure_cursor_visible(viewport_height)`
 - Remote path support: paths stored as strings for remote, Path objects for local
 
-**`src/nedok/ssh_connection.py`** - SSH connection management:
+**`src/nedok/ssh_connection.py`** (325 lines) - SSH connection management:
 - `SSHConnection`: Manages SSH client and SFTP session using paramiko
 - Methods: `connect()`, `disconnect()`, `list_directory()`, `stat()`, `get_file()`, `put_file()`
 - Remote file operations: `remove()`, `rmdir()`, `rename()`, `mkdir()`, `open()`
 - Connection state tracking and validation
 - Automatic host key policy handling
 
-**`src/nedok/modes.py`** - Browser mode enumeration:
+**`src/nedok/modes.py`** (26 lines) - Browser mode enumeration:
 - `BrowserMode.FILE`: Shows standard file permissions in mode column
-- `BrowserMode.GIT`: Shows git status codes (M, A, D, ??, etc.) in mode column instead
+- `BrowserMode.GIT`: Shows git status codes (M, A, D, ??, etc.) in mode column
+- `BrowserMode.OWNER`: Shows file ownership (user:group) in columns
+- `ALL_MODES`: List of all available modes for iteration
 
-**`src/nedok/git_status.py`** - Git integration:
+**`src/nedok/git_status.py`** (68 lines) - Git integration:
 - `collect_git_status(directory)`: Returns `(repo_root, {path: status_code})` by running `git status --porcelain=1`
 - Handles renames (splits on ` -> ` and takes destination)
 - Returns empty dict if not in a git repository
 
-**`src/nedok/colors.py`** - Color management:
+**`src/nedok/colors.py`** (158 lines) - Color management:
 - `ColorPair`: IntEnum defining all color pair constants for curses
 - `init_colors()`: Initializes curses color pairs (called in event loop setup)
 - `get_file_color(entry)`: Returns appropriate color attributes for File mode based on entry type
@@ -177,52 +181,70 @@ poetry add --group dev <package>  # for test/dev deps
 - Git mode colors: Red untracked, yellow modified, green staged, red deleted, cyan renamed, dim clean
 - Colors combine with curses attributes (e.g., A_BOLD, A_REVERSE for selection)
 
-**`src/nedok/render.py`** (~640 lines) - All curses rendering:
+**`src/nedok/render.py`** (369 lines) - Main curses rendering:
 - `render_browser()`: Top-level layout with dynamic sizing
   - Allocates space for: browser panes (top), command console (middle), help hints (bottom 3 lines)
   - Permanent help hints always visible at bottom
-- `render_browser_pane()`: Individual pane rendering with columns (Name, Mode/Git, Size, Modified)
+- `render_browser_pane()`: Individual pane rendering with columns (Name, Mode/Git/Owner, Size, Modified/User/Group)
   - Displays connection status in pane title (user@host:path for remote)
   - Applies colors from `get_file_color()` or `get_git_color()` based on current mode
   - Combines colors with A_REVERSE attribute for cursor selection
-- `render_command_area()`: Delegates to specialized renderers based on browser state:
-  - `render_confirmation_dialog()`: Y/N confirmation prompt
-  - `render_ssh_connect_input()`: SSH connection form (Host, User, Password with Tab navigation)
-  - `render_rename_input()`: Rename input with cursor positioning
-  - `render_create_input()`: File/directory creation input with cursor positioning
-  - `render_mode_prompt()`: Mode selection overlay
-  - `render_help_panel()`: Comprehensive help text overlay
+- `render_command_area()`: Delegates to specialized renderers in render_dialogs.py based on browser state
   - Default: Command prompt, status line, and output buffer (last 200 lines)
 - `render_help_hints()`: Permanent compact help display at screen bottom (dimmed)
-- Uses Unicode box-drawing characters (┌─┐│└┘)
-- Dynamic column width calculation based on terminal size
 - Cursor visibility managed: shown during command/rename/create/SSH input, hidden otherwise
 
-**`src/nedok/help_text.py`** - Context-sensitive help hints:
+**`src/nedok/render_dialogs.py`** (283 lines) - Modal dialog rendering:
+- `render_confirmation_dialog()`: Y/N confirmation prompt
+- `render_ssh_connect_input()`: SSH connection form (Host, User, Password with Tab navigation)
+- `render_rename_input()`: Rename input with cursor positioning
+- `render_create_input()`: File/directory creation input with cursor positioning
+- `render_mode_prompt()`: Mode selection overlay (File/Git/Owner)
+- `render_help_panel()`: Comprehensive help text overlay
+- All dialogs use frame rendering utilities from render_utils.py
+
+**`src/nedok/render_utils.py`** (138 lines) - Rendering utilities:
+- `draw_frame()`, `draw_frame_title()`: Unicode box-drawing characters (┌─┐│└┘)
+- `determine_column_widths()`: Dynamic column width calculation based on terminal size
+- `truncate_start()`, `truncate_end()`: Text truncation helpers
+- Box drawing character constants
+
+**`src/nedok/help_text.py`** (18 lines) - Context-sensitive help hints:
 - `build_help_lines(mode)`: Returns compact hints (3 lines) appropriate for current mode
 - Terse format: "key action | key action" for quick reference
 - Mode-specific operations clearly indicated
 
-**`src/nedok/formatting.py`** - Display formatting utilities:
+**`src/nedok/config.py`** (231 lines) - Configuration file management:
+- `load_config()`, `save_config()`: Read/write ~/.nedok.toml configuration file
+- `get_file_mode_colors()`, `get_git_mode_colors()`: Color scheme configuration
+- `get_ssh_credentials()`, `save_ssh_credentials()`: SSH credential storage (plaintext warning in docs)
+- `get_last_session()`, `save_session()`: Session state persistence (directories and SSH connections)
+- Default configuration with color schemes and session state
+- Uses tomllib (Python 3.11+) or tomli for reading, tomli_w for writing
+- Automatic migration and merging of user config with defaults
+
+**`src/nedok/formatting.py`** (28 lines) - Display formatting utilities:
 - `format_size()`: Human-readable sizes (B, KB, MB, GB)
 - `format_timestamp()`: Timestamp formatting for modified dates
 
 ### Key Design Patterns
 
 1. **Mixin Architecture**: Core functionality split across focused mixins:
-   - `InputHandlersMixin`: All keyboard input handling (300 lines)
-   - `FileOperationsMixin`: All file operations (168 lines)
+   - `InputHandlersMixin`: All keyboard input handling (674 lines)
+   - `FileOperationsMixin`: All file operations (527 lines)
    - `GitOperationsMixin`: All git operations (378 lines)
-   - `DualPaneBrowser`: Core orchestration (141 lines)
+   - `DualPaneBrowser`: Core orchestration (280 lines)
    - **Benefits**: Each mixin has single responsibility, easier testing, better maintainability
    - **No API changes**: Mixins compose into single class, existing code works unchanged
 
-2. **State Separation**: Browser state (`_PaneState`) is separate from rendering (`render.py`) and controller logic (`browser.py`)
+2. **State Separation**: Browser state (`_PaneState`) is separate from rendering (`render.py`, `render_dialogs.py`, `render_utils.py`) and controller logic (`browser.py`)
 
-3. **Mode System**: The `BrowserMode` enum switches between file browsing and git operations. Modes affect:
-   - Column headers ("Mode" vs "Git")
-   - Entry metadata (file permissions vs git status)
-   - Available key commands (file ops vs git ops)
+3. **Mode System**: The `BrowserMode` enum switches between three display modes. Modes affect:
+   - `FILE`: Shows file permissions, size, and modification time
+   - `GIT`: Shows git status, size, and modification time
+   - `OWNER`: Shows file permissions, owner username, and group name
+   - All file operations and git operations are available in all modes
+   - Modes only change what information is displayed, not what commands are available
 
 4. **Modal Input Handling**: The event loop checks multiple input modes in priority order:
    - Confirmation dialogs (highest priority - prevent other actions during confirmation)
@@ -270,6 +292,20 @@ poetry add --group dev <package>  # for test/dev deps
    - Delete: Remote directories deleted recursively by listing contents and removing files/subdirs depth-first
    - Temp files: Used for remote view/edit and remote-to-remote copies, cleaned up in finally blocks
 
+12. **Configuration System**: TOML-based configuration file (~/.nedok.toml):
+   - Color schemes: Customizable colors for File mode and Git mode
+   - SSH credentials: Saved hostname/username/password (plaintext - not recommended for production)
+   - Session persistence: Last directories and SSH connections saved on exit
+   - Auto-reconnect: SSH sessions restored on startup if credentials/keys available
+   - Graceful fallback: Uses defaults if config file missing or corrupted
+   - Manual override: Command-line arguments bypass saved session state
+
+13. **Rendering Architecture**: Modular rendering split across three files:
+   - `render.py`: Main browser and pane rendering, top-level layout
+   - `render_dialogs.py`: All modal dialogs (confirmation, SSH connect, rename, create, mode selection, help)
+   - `render_utils.py`: Shared utilities (box drawing, column width calculation, text truncation)
+   - **Benefits**: Cleaner separation of concerns, easier to maintain dialog code separately
+
 ## Testing Approach
 
 - Tests use `pytest` and live under `tests/`
@@ -277,7 +313,8 @@ poetry add --group dev <package>  # for test/dev deps
 - Test coverage includes:
   - `test_browser_git_operations.py`: Git operations with temporary repos (uses `tmp_path` fixture)
   - `test_new_features.py`: Confirmation dialogs, rename, file/directory creation
-  - `test_help_text.py`: Help text completeness for both modes
+  - `test_help_text.py`: Help text completeness for all three modes
+  - `test_config.py`: Configuration file loading, saving, credential management, session persistence
   - `test_formatting.py`, `test_git_status.py`, `test_main.py`: Unit tests for utilities
 - Browser tests interact with `DualPaneBrowser` instance directly, manipulating `_PaneState` and calling internal methods
 - Confirmation tests simulate user actions by executing pending callbacks
