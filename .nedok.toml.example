@@ -1,0 +1,37 @@
+# Nerdy Doorkey Configuration File
+# Copy this file to ~/.nedok.toml to customize settings
+
+# Color Schemes
+# Available colors: blue_bold, green_bold, cyan, gray_dim, yellow, white, red_bold, red
+# You can customize which colors are used for different file types and git statuses
+
+[colors.file_mode]
+directory = "blue_bold"       # Directories
+executable = "green_bold"     # Executable files (files with x permission)
+symlink = "cyan"              # Symbolic links
+hidden = "gray_dim"           # Hidden files (starting with .)
+readonly = "yellow"           # Read-only files (no write permission)
+regular = "white"             # Regular files with write permission
+
+[colors.git_mode]
+untracked = "red_bold"        # Untracked files (??)
+deleted = "red"               # Deleted files (D)
+modified_unstaged = "yellow"  # Modified but not staged ( M)
+staged = "green_bold"         # Staged files (M , A )
+renamed = "cyan"              # Renamed files (R )
+clean = "gray_dim"            # Clean files (tracked, no changes)
+directory = "blue_bold"       # Directories (always blue in git mode)
+
+# SSH Credentials
+# WARNING: Passwords are stored in PLAINTEXT - use SSH keys for production!
+# This section is auto-populated when you save credentials after connecting
+[ssh.credentials]
+# Format:
+# [ssh.credentials."hostname.example.com"]
+# username = "myuser"
+# password = "mypassword"  # PLAINTEXT - not secure!
+
+# Example:
+# [ssh.credentials."server.local"]
+# username = "admin"
+# password = "secret123"

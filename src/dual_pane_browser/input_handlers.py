@@ -375,6 +375,9 @@ class InputHandlersMixin:
             return True
         if key_code in (curses.KEY_ENTER, ord("\n"), ord("\r")):
             if self.ssh_input_field < 2:
+                # Moving from host field - try to load credentials
+                if self.ssh_input_field == 0:
+                    self._load_ssh_credentials()
                 # Move to next field
                 self.ssh_input_field += 1
                 return True
@@ -384,7 +387,11 @@ class InputHandlersMixin:
                 return True
         if key_code == ord("\t"):
             # Tab to next field
+            old_field = self.ssh_input_field
             self.ssh_input_field = (self.ssh_input_field + 1) % 3
+            # Moving from host field - try to load credentials
+            if old_field == 0:
+                self._load_ssh_credentials()
             return True
         if key_code in (curses.KEY_BACKSPACE, 127, 8):
             if self.ssh_input_field == 0:
@@ -407,6 +414,7 @@ class InputHandlersMixin:
     def _execute_ssh_connect(self) -> None:
         """Execute SSH connection."""
         from .ssh_connection import SSHConnection
+        from .config import get_ssh_credentials
 
         host = self.ssh_host_buffer.strip()
         user = self.ssh_user_buffer.strip()
@@ -436,8 +444,19 @@ class InputHandlersMixin:
             pane.refresh_entries(self.mode)
 
             self.status_message = f"Connected to {user}@{host}"
+
+            # Check if credentials should be saved
+            saved_creds = get_ssh_credentials(host)
+            if not saved_creds or saved_creds.get("username") != user or saved_creds.get("password") != password:
+                # Offer to save credentials
+                self.ssh_last_connection = (host, user, password or "")
+                self._request_confirmation(
+                    f"Save SSH credentials for {host}?",
+                    self._save_ssh_credentials_confirmed
+                )
         except Exception as err:
             self.status_message = f"SSH connection failed: {err}"
+            self.ssh_last_connection = None
         finally:
             self.in_ssh_connect_mode = False
             self.ssh_host_buffer = ""
@@ -463,6 +482,35 @@ class InputHandlersMixin:
             self.status_message = "Disconnected from SSH."
         except Exception as err:
             self.status_message = f"Error disconnecting: {err}"
+
+    def _load_ssh_credentials(self) -> None:
+        """Load saved SSH credentials for current hostname if available."""
+        from .config import get_ssh_credentials
+
+        host = self.ssh_host_buffer.strip()
+        if not host:
+            return
+
+        creds = get_ssh_credentials(host)
+        if creds:
+            # Pre-populate username and password
+            if "username" in creds and not self.ssh_user_buffer:
+                self.ssh_user_buffer = creds["username"]
+            if "password" in creds and not self.ssh_password_buffer:
+                self.ssh_password_buffer = creds["password"]
+            self.status_message = f"Loaded saved credentials for {host}"
+
+    def _save_ssh_credentials_confirmed(self) -> None:
+        """Save SSH credentials after user confirms."""
+        from .config import save_ssh_credentials
+
+        if not self.ssh_last_connection:
+            return
+
+        host, user, password = self.ssh_last_connection
+        save_ssh_credentials(host, user, password if password else None)
+        self.ssh_last_connection = None
+        self.status_message = f"Saved credentials for {host}"
 
 
 __all__ = ["InputHandlersMixin"]

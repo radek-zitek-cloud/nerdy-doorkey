@@ -130,3 +130,7 @@ dmypy.json
 
 # Cython debug symbols
 cython_debug/
+
+# Configuration files (may contain credentials)
+.nedok.toml
+.github_release_notes_*.md

@@ -224,9 +224,16 @@ The parent directory entry is always shown in **bold blue** in both modes.
 Press `S` (Shift+s) to initiate SSH connection in active pane:
 
 1. **Host:** Enter hostname or IP address
-2. **User:** Enter username (default: current user)
-3. **Password:** Enter password (shown as `***`)
+   - If credentials are saved for this host, they will be auto-loaded
+2. **User:** Enter username (default: current user or saved username)
+3. **Password:** Enter password (shown as `***`, auto-loaded if saved)
 4. **Connect:** Press Enter to establish connection
+5. **Save:** After successful connection, you'll be prompted to save credentials
+
+**Saved Credentials:**
+- Automatically loaded when you enter a known hostname
+- Stored in `~/.nedok.toml` configuration file
+- **WARNING:** Passwords stored in plaintext - use SSH keys for production!
 
 Once connected:
 - Pane title shows: `user@host:/remote/path`

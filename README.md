@@ -179,6 +179,29 @@ Other:          :cmd  m)ode  h)elp  q)uit
 
 ## Configuration
 
+### Configuration File
+
+Nerdy Doorkey supports a configuration file at `~/.nedok.toml` for customizing:
+- Color schemes for File and Git modes
+- Saved SSH credentials
+
+**Example configuration:**
+```bash
+# Copy example config to home directory
+cp .nedok.toml.example ~/.nedok.toml
+
+# Edit with your preferences
+nano ~/.nedok.toml
+```
+
+See `.nedok.toml.example` in the repository for full configuration options.
+
+### SSH Credentials
+
+After connecting to an SSH host, you'll be prompted to save credentials:
+- **Automatic loading**: Enter a saved hostname to auto-populate username/password
+- **Security note**: Passwords stored in **plaintext** - use SSH keys for production!
+
 ### Environment Variables
 
 - **`$EDITOR`**: Editor for file editing (`e`) and git commits (`o`). Default: `vi`
