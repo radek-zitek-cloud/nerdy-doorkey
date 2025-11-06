@@ -54,7 +54,7 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         self.active_index = 0
         self.status_message: str | None = None
         self.command_buffer: str = ""
-        self.command_output: List[str] = []
+        self.console_buffer: List[str] = []  # Scrolling console messages
         self.in_command_mode: bool = False
         self.show_help: bool = False
         self.in_mode_prompt: bool = False
@@ -248,6 +248,17 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         """Dismiss help and mode selection overlays."""
         self.show_help = False
         self.in_mode_prompt = False
+
+    def _add_console_message(self, message: str) -> None:
+        """Add a message to the scrolling console buffer.
+
+        Messages are prefixed with mode info and kept within max buffer size.
+        """
+        prefixed_message = f"[{self.mode.label}] {message}"
+        self.console_buffer.append(prefixed_message)
+        # Keep console buffer at reasonable size
+        if len(self.console_buffer) > OUTPUT_BUFFER_MAX_LINES:
+            self.console_buffer = self.console_buffer[-OUTPUT_BUFFER_MAX_LINES:]
 
     def _run_external(self, command: List[str]) -> None:
         """Temporarily suspend curses to run an external command."""

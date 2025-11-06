@@ -200,6 +200,47 @@ def render_rename_input(
     return (prompt_y, cursor_x)
 
 
+def render_command_input(
+    browser: "DualPaneBrowser",
+    stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
+    origin_y: int,
+    origin_x: int,
+    height: int,
+    width: int,
+) -> Optional[Tuple[int, int]]:
+    """Render the command input popup."""
+    draw_frame(stdscr, origin_y, origin_x, height, width)
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Execute Command")
+    interior_width = max(width - 2, 0)
+    interior_height = max(height - 2, 0)
+    if interior_width <= 0 or interior_height <= 0:
+        return None
+
+    prompt_x = origin_x + 1
+    prompt_y = origin_y + 1
+
+    prompt_prefix = "$ "
+    prompt_text = f"{prompt_prefix}{browser.command_buffer}"
+    truncated_prompt = truncate_end(prompt_text, interior_width)
+    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
+
+    status_y = prompt_y + 1
+    status_text = browser.status_message or "Enter shell command (Enter to execute, Esc to cancel)"
+    stdscr.addnstr(
+        status_y,
+        prompt_x,
+        truncate_end(status_text, interior_width).ljust(interior_width),
+        interior_width,
+    )
+
+    # Position cursor
+    cursor_x = prompt_x + len(prompt_prefix) + len(browser.command_buffer)
+    max_cursor_x = prompt_x + interior_width - 1
+    if cursor_x > max_cursor_x:
+        cursor_x = max_cursor_x
+    return (prompt_y, cursor_x)
+
+
 def render_create_input(
     browser: "DualPaneBrowser",
     stdscr: "curses._CursesWindow",  # type: ignore[name-defined]
@@ -208,7 +249,7 @@ def render_create_input(
     height: int,
     width: int,
 ) -> Optional[Tuple[int, int]]:
-    """Render the create file/directory input."""
+    """Render the create file/directory input popup."""
     item_type = "Directory" if browser.create_is_dir else "File"
     draw_frame(stdscr, origin_y, origin_x, height, width)
     draw_frame_title(stdscr, origin_y, origin_x, width, f"Create {item_type}")

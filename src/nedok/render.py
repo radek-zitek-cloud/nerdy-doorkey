@@ -16,6 +16,7 @@ from nedok.colors import get_file_color, get_git_color
 from nedok.help_text import build_help_lines
 from nedok.modes import BrowserMode
 from nedok.render_dialogs import (
+    render_command_input,
     render_confirmation_overlay,
     render_create_input,
     render_help_panel,
@@ -115,12 +116,25 @@ def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -
         width=width,
     )
 
+    # Render popups/overlays (layered on top)
     if browser.in_mode_prompt:
         render_mode_prompt(browser, stdscr, height, width)
+
+    # Command input popup (centered)
+    command_popup_cursor = None
+    if browser.in_command_mode:
+        popup_height = 5
+        popup_width = min(60, width - 4)
+        popup_y = max((height - popup_height) // 2, 0)
+        popup_x = max((width - popup_width) // 2, 0)
+        command_popup_cursor = render_command_input(
+            browser, stdscr, popup_y, popup_x, popup_height, popup_width
+        )
 
     if browser.pending_action:
         render_confirmation_overlay(browser, stdscr, height, width)
 
+    # Cursor visibility
     try:
         show_cursor = (browser.in_command_mode or browser.in_rename_mode or
                       browser.in_create_mode or browser.in_ssh_connect_mode)
@@ -128,7 +142,13 @@ def render_browser(browser: "DualPaneBrowser", stdscr: "curses._CursesWindow") -
     except curses.error:
         pass
 
-    if command_cursor is not None and show_cursor:
+    # Position cursor
+    if command_popup_cursor is not None and browser.in_command_mode:
+        try:
+            stdscr.move(*command_popup_cursor)
+        except curses.error:
+            pass
+    elif command_cursor is not None and show_cursor:
         try:
             stdscr.move(*command_cursor)
         except curses.error:
@@ -292,10 +312,11 @@ def render_command_area(
     height: int,
     width: int,
 ) -> Optional[Tuple[int, int]]:
-    """Render the command input and output pane."""
+    """Render the console with scrolling message buffer."""
     if height < 3 or width < 10:
         return None
 
+    # Modal dialogs take over the command area
     if browser.in_ssh_connect_mode:
         return render_ssh_connect_input(browser, stdscr, origin_y, origin_x, height, width)
     if browser.show_help:
@@ -305,56 +326,38 @@ def render_command_area(
     if browser.in_create_mode:
         return render_create_input(browser, stdscr, origin_y, origin_x, height, width)
 
+    # Draw Console frame
     draw_frame(stdscr, origin_y, origin_x, height, width)
-    draw_frame_title(stdscr, origin_y, origin_x, width, "Command Console")
+    draw_frame_title(stdscr, origin_y, origin_x, width, "Console")
 
     interior_width = max(width - 2, 0)
     interior_height = max(height - 2, 0)
     if interior_width <= 0 or interior_height <= 0:
         return None
 
-    prompt_y = origin_y + 1
-    prompt_x = origin_x + 1
-    prompt_prefix = "CMD> " if browser.in_command_mode else "cmd> "
-    prompt_text = f"{prompt_prefix}{browser.command_buffer}"
-    truncated_prompt = truncate_end(prompt_text, interior_width)
-    stdscr.addnstr(prompt_y, prompt_x, truncated_prompt.ljust(interior_width), interior_width)
+    # Show scrolling console buffer
+    start_y = origin_y + 1
+    start_x = origin_x + 1
+    available_rows = interior_height
 
-    status_y = prompt_y + 1
-    status_text = browser.status_message or "Press : to enter command mode. q to quit."
-    status_text = f"[{browser.mode.label} mode] {status_text}"
-    stdscr.addnstr(
-        status_y,
-        prompt_x,
-        truncate_end(status_text, interior_width).ljust(interior_width),
-        interior_width,
-    )
-
-    output_start = status_y + 1
-    available_rows = interior_height - 2
     if available_rows > 0:
-        output_lines = browser.command_output[-available_rows:] if browser.command_output else []
+        # Show most recent messages
+        console_lines = browser.console_buffer[-available_rows:] if browser.console_buffer else []
         for offset in range(available_rows):
-            y = output_start + offset
-            if offset < len(output_lines):
-                line = output_lines[offset]
+            y = start_y + offset
+            if offset < len(console_lines):
+                line = console_lines[offset]
                 stdscr.addnstr(
                     y,
-                    prompt_x,
+                    start_x,
                     truncate_end(line, interior_width).ljust(interior_width),
                     interior_width,
                 )
             else:
-                stdscr.addnstr(y, prompt_x, " " * interior_width, interior_width)
+                # Empty line
+                stdscr.addnstr(y, start_x, " " * interior_width, interior_width)
 
-    if not browser.in_command_mode:
-        return None
-
-    cursor_x = prompt_x + len(prompt_prefix) + len(browser.command_buffer)
-    max_cursor_x = prompt_x + interior_width - 1
-    if cursor_x > max_cursor_x:
-        cursor_x = max_cursor_x
-    return (prompt_y, cursor_x)
+    return None
 
 
 def render_help_hints(
