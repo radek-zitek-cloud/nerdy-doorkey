@@ -4,9 +4,10 @@ import argparse
 import sys
 from pathlib import Path
 
-from src.dual_pane_browser import DualPaneBrowser, DualPaneBrowserError
+from . import DualPaneBrowser, DualPaneBrowserError
+from .config import get_last_session, save_session
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 
 def parse_args() -> argparse.Namespace:
@@ -49,7 +50,6 @@ def main() -> int:
 
     if args.left_directory is None and args.right_directory is None:
         # No directories specified - load from config (including SSH sessions)
-        from src.dual_pane_browser.config import get_last_session
         session = get_last_session()
         left = Path(session["left_directory"]).expanduser()
         right = Path(session["right_directory"]).expanduser()
@@ -82,7 +82,6 @@ def main() -> int:
         return 1
 
     # Save final session state (directories + SSH connections) to config
-    from src.dual_pane_browser.config import save_session
     save_session(str(final_left), str(final_right), final_left_ssh, final_right_ssh)
 
     print(f"Final left pane directory: {final_left}")

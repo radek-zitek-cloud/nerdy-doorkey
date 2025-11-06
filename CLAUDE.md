@@ -51,42 +51,43 @@ This is a dual-pane terminal-based file browser built with Python curses. The ap
 
 ## Development Commands
 
-Activate the virtual environment first:
+Install dependencies (creates the Poetry-managed virtualenv):
 ```bash
-source .venv/bin/activate
+poetry install
 ```
 
 Run the application:
 ```bash
-python main.py [left_dir] [right_dir]
+poetry run python -m src.nedok.cli [left_dir] [right_dir]
 ```
 
 Run tests:
 ```bash
-python -m pytest -q
+poetry run python -m pytest -q
 ```
 
 Run a specific test file:
 ```bash
-python -m pytest tests/test_<feature>.py -v
+poetry run python -m pytest tests/test_<feature>.py -v
 ```
 
-Install/update dependencies:
+Add or update dependencies:
 ```bash
-python -m pip install -r requirements.txt
+poetry add <package>
+poetry add --group dev <package>  # for test/dev deps
 ```
 
 ## Architecture
 
 ### Entry Point & Flow
-- `main.py`: CLI entry point that validates terminal availability, parses arguments, instantiates `DualPaneBrowser`, and returns final directory paths
+- `src/nedok/cli.py`: CLI entry point that validates terminal availability, parses arguments, instantiates `DualPaneBrowser`, and returns final directory paths
 - The application uses Python's `curses.wrapper()` for proper terminal initialization and cleanup
 
 ### Core Components
 
 **Architecture:** Mixin-based design for separation of concerns
 
-**`src/dual_pane_browser/browser.py`** (141 lines) - Core orchestration:
+**`src/nedok/browser.py`** (141 lines) - Core orchestration:
 - `DualPaneBrowser`: Main class using three mixins for functionality
 - Manages core state: two `_PaneState` instances (left/right), mode, overlays, buffers
 - Event loop (`_loop`) dispatches keypresses to handlers in priority order
@@ -94,10 +95,11 @@ python -m pip install -r requirements.txt
 - Properties: `_active_pane`, `_inactive_pane`
 - **Delegates all operations to mixins** (see below)
 
-**`src/dual_pane_browser/input_handlers.py`** (~440 lines) - InputHandlersMixin:
+**`src/nedok/input_handlers.py`** (~440 lines) - InputHandlersMixin:
 - All keyboard input handling methods:
   - `_handle_confirmation_key`: Y/N confirmation for destructive actions
   - `_handle_ssh_connect_key`: SSH connection dialog input (Tab between fields, Enter to connect)
+  - `_handle_host_field_exit`: Detects saved credentials or SSH-agent availability after hostname entry and prompts user to reuse or override them
   - `_handle_rename_key`: Rename input handling
   - `_handle_create_key`: File/directory creation input handling
   - `_handle_mode_selection_key`: Mode prompt overlay (F/G to switch)
@@ -108,7 +110,7 @@ python -m pip install -r requirements.txt
 - SSH connection management (`_start_ssh_connect()`, `_execute_ssh_connect()`)
 - Confirmation request system (`_request_confirmation()`)
 
-**`src/dual_pane_browser/file_operations.py`** (~475 lines) - FileOperationsMixin:
+**`src/nedok/file_operations.py`** (~475 lines) - FileOperationsMixin:
 - File operation methods supporting both local and remote:
   - `_delete_entry()`: Delete with confirmation (local or remote, recursive for directories)
   - `_copy_entry()`: Universal copy supporting all combinations (local↔local, local↔remote, remote↔local, remote↔remote)
@@ -125,7 +127,7 @@ python -m pip install -r requirements.txt
 - Edit operations detect file changes by comparing mtime before/after editing
 - All operations refresh panes to show changes
 
-**`src/dual_pane_browser/git_operations.py`** (378 lines) - GitOperationsMixin:
+**`src/nedok/git_operations.py`** (378 lines) - GitOperationsMixin:
 - Git operation methods:
   - `_git_stage_entry()`, `_git_unstage_entry()`: Stage/unstage changes
   - `_git_restore_entry()`: Restore to HEAD with confirmation
@@ -139,7 +141,7 @@ python -m pip install -r requirements.txt
 - All pager operations write to temp files with color support (less -R)
 - External commands suspend curses, run synchronously, then refresh
 
-**`src/dual_pane_browser/state.py`** - Pane state management:
+**`src/nedok/state.py`** - Pane state management:
 - `_PaneState`: Directory listing, cursor position, scroll offset, entry list, SSH connection
 - `_PaneEntry`: File/directory metadata (path, size, mode, timestamp, git status, is_executable, is_symlink, is_readonly, is_remote)
 - Entries sorted with directories first, then alphabetically
@@ -150,23 +152,23 @@ python -m pip install -r requirements.txt
 - Cursor visibility managed by `ensure_cursor_visible(viewport_height)`
 - Remote path support: paths stored as strings for remote, Path objects for local
 
-**`src/dual_pane_browser/ssh_connection.py`** - SSH connection management:
+**`src/nedok/ssh_connection.py`** - SSH connection management:
 - `SSHConnection`: Manages SSH client and SFTP session using paramiko
 - Methods: `connect()`, `disconnect()`, `list_directory()`, `stat()`, `get_file()`, `put_file()`
 - Remote file operations: `remove()`, `rmdir()`, `rename()`, `mkdir()`, `open()`
 - Connection state tracking and validation
 - Automatic host key policy handling
 
-**`src/dual_pane_browser/modes.py`** - Browser mode enumeration:
+**`src/nedok/modes.py`** - Browser mode enumeration:
 - `BrowserMode.FILE`: Shows standard file permissions in mode column
 - `BrowserMode.GIT`: Shows git status codes (M, A, D, ??, etc.) in mode column instead
 
-**`src/dual_pane_browser/git_status.py`** - Git integration:
+**`src/nedok/git_status.py`** - Git integration:
 - `collect_git_status(directory)`: Returns `(repo_root, {path: status_code})` by running `git status --porcelain=1`
 - Handles renames (splits on ` -> ` and takes destination)
 - Returns empty dict if not in a git repository
 
-**`src/dual_pane_browser/colors.py`** - Color management:
+**`src/nedok/colors.py`** - Color management:
 - `ColorPair`: IntEnum defining all color pair constants for curses
 - `init_colors()`: Initializes curses color pairs (called in event loop setup)
 - `get_file_color(entry)`: Returns appropriate color attributes for File mode based on entry type
@@ -175,7 +177,7 @@ python -m pip install -r requirements.txt
 - Git mode colors: Red untracked, yellow modified, green staged, red deleted, cyan renamed, dim clean
 - Colors combine with curses attributes (e.g., A_BOLD, A_REVERSE for selection)
 
-**`src/dual_pane_browser/render.py`** (~640 lines) - All curses rendering:
+**`src/nedok/render.py`** (~640 lines) - All curses rendering:
 - `render_browser()`: Top-level layout with dynamic sizing
   - Allocates space for: browser panes (top), command console (middle), help hints (bottom 3 lines)
   - Permanent help hints always visible at bottom
@@ -196,12 +198,12 @@ python -m pip install -r requirements.txt
 - Dynamic column width calculation based on terminal size
 - Cursor visibility managed: shown during command/rename/create/SSH input, hidden otherwise
 
-**`src/dual_pane_browser/help_text.py`** - Context-sensitive help hints:
+**`src/nedok/help_text.py`** - Context-sensitive help hints:
 - `build_help_lines(mode)`: Returns compact hints (3 lines) appropriate for current mode
 - Terse format: "key action | key action" for quick reference
 - Mode-specific operations clearly indicated
 
-**`src/dual_pane_browser/formatting.py`** - Display formatting utilities:
+**`src/nedok/formatting.py`** - Display formatting utilities:
 - `format_size()`: Human-readable sizes (B, KB, MB, GB)
 - `format_timestamp()`: Timestamp formatting for modified dates
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from src.dual_pane_browser.formatting import format_size, format_timestamp
+from src.nedok.formatting import format_size, format_timestamp
 
 
 def test_format_size_scales_units():

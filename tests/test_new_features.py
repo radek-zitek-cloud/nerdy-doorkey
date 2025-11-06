@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from src.dual_pane_browser.browser import DualPaneBrowser
-from src.dual_pane_browser.modes import BrowserMode
+from src.nedok.browser import DualPaneBrowser
+from src.nedok.modes import BrowserMode
 
 
 def test_delete_requires_confirmation(tmp_path: Path) -> None:

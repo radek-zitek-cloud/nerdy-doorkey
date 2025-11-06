@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-11-06
+
+### Changed
+- **Poetry build system** – Migrated from pip/requirements.txt to Poetry for modern dependency and build management
+  - Added pyproject.toml with Poetry configuration
+  - Dependencies managed via Poetry (paramiko, tomli, tomli-w)
+  - Dev dependencies (pytest) in separate group
+  - Build backend: poetry-core>=1.8.0
+- **Package structure** – Formalized src-layout package structure for Poetry build
+  - Package configuration: `packages = [{ include = "nedok", from = "src" }]`
+  - Maintains existing CLI entry point: `python -m src.nedok.cli`
+
+### Technical
+- Modern Python packaging with Poetry
+- Cleaner dependency management
+- Reproducible builds with poetry.lock (when generated)
+- Preparation for future PyPI distribution
+
+## [0.3.1] - 2025-11-07
+
+### Changed
+- **Package rename** – Runtime module renamed from `dual_pane_browser` to `nedok` to better reflect the project identity. Update your imports to `from src.nedok ...`.
+- **SSH credential workflow** – When leaving the host field the browser now discovers saved credentials or SSH-agent access, informs the user, and offers to reuse them or override with new details.
+- **Documentation refresh** – README, CLAUDE, CODE_REVIEW, and tests updated to reference the `nedok` package and explain the credential autodetect prompt.
+
+### Fixed
+- **Version bump** – Incremented to 0.3.1 to capture the package rename and SSH UX improvements.
+
 ## [0.3.0] - 2025-11-06
 
 ### Added

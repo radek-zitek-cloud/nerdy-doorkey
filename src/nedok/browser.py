@@ -5,7 +5,7 @@ from __future__ import annotations
 import curses
 import subprocess
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
 
 from .colors import init_colors
 from .file_operations import FileOperationsMixin
@@ -17,6 +17,9 @@ from .state import _PaneState
 
 # Constants
 OUTPUT_BUFFER_MAX_LINES = 200
+
+if TYPE_CHECKING:
+    from .input_handlers import _PendingAction, _AvailableSSHCredentials
 
 
 class DualPaneBrowserError(Exception):
@@ -46,7 +49,7 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         self._stdscr: Optional["curses._CursesWindow"] = None  # type: ignore[name-defined]
 
         # Confirmation dialog state
-        self.pending_action: Optional[Tuple[str, Callable[[], None]]] = None
+        self.pending_action: Optional["_PendingAction"] = None
 
         # Rename mode state
         self.in_rename_mode: bool = False
@@ -65,6 +68,7 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         self.ssh_input_field: int = 0  # 0=host, 1=user, 2=password
         self.ssh_last_connection: Optional[Tuple[str, str, str]] = None  # (host, user, pass) for save prompt
         self.ssh_pending_connection: Optional[Tuple[str, str, Optional[str]]] = None  # (host, user, pass) for host key approval
+        self.ssh_available_credentials: Optional["_AvailableSSHCredentials"] = None
 
     def auto_reconnect_ssh(self, left_ssh: Optional[dict] = None, right_ssh: Optional[dict] = None) -> tuple[bool, bool]:
         """Attempt to auto-reconnect SSH sessions from saved state.

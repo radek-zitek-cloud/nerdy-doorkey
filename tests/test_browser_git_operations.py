@@ -3,8 +3,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from src.dual_pane_browser.browser import DualPaneBrowser
-from src.dual_pane_browser.modes import BrowserMode
+from src.nedok.browser import DualPaneBrowser
+from src.nedok.modes import BrowserMode
 
 
 def _run(command: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:

@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "nedok"
+version = "0.4.0"
+description = "Dual-pane terminal file browser with SSH and Git support."
+authors = ["Radek Zitek <radek@zitek.cloud>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "nedok", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+paramiko = "*"
+tomli = ">=2.0.0"
+tomli-w = ">=1.0.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"

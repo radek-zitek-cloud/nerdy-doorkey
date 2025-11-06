@@ -4,7 +4,7 @@ Complete documentation of all commands, keybindings, git status symbols, and col
 
 ## Quick Start
 
-- **Launch:** `python main.py [left_dir] [right_dir]`
+- **Launch:** `python -m src.nedok.cli [left_dir] [right_dir]`
 - **Help:** Press `h` to toggle help overlay
 - **Mode Switch:** Press `m` to switch between File and Git modes
 - **Quit:** Press `q` to exit
@@ -385,7 +385,7 @@ Other:          :cmd  m)ode  h)elp  q)uit
 - Large files may take time to copy (no progress indicator)
 
 ### SSH/Remote Operations
-- Requires `paramiko` Python library (installed with requirements.txt)
+- Requires `paramiko` Python library (managed via Poetry)
 - Password authentication supported (key-based auth available via SSH agent)
 - Remote paths use POSIX format (forward slashes)
 - Each pane can connect to different remote hosts
@@ -398,4 +398,4 @@ Other:          :cmd  m)ode  h)elp  q)uit
 
 - `CLAUDE.md` - Architecture and development documentation
 - `README.md` - Project overview and installation
-- `main.py` - Entry point and CLI arguments
+- `src/nedok/cli.py` - Entry point and CLI arguments

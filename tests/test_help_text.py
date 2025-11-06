@@ -1,5 +1,5 @@
-from src.dual_pane_browser.help_text import build_help_lines
-from src.dual_pane_browser.modes import BrowserMode
+from src.nedok.help_text import build_help_lines
+from src.nedok.modes import BrowserMode
 
 
 def test_help_lines_cover_shortcuts():

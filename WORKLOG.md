@@ -20,7 +20,7 @@
   2. Enhanced Remote Error Handling - Added comprehensive error handling to `_delete_remote_dir_recursive()`, `_copy_remote_dir_to_local()`, and `_copy_local_dir_to_remote()` with detailed error messages for network failures
   3. Config Mutation Regression Tests - Added tests/test_config.py with 3 tests ensuring DEFAULT_CONFIG isolation and preventing pollution from runtime mutations
   4. Documentation Updates - Updated CODE_REVIEW.md to mark all resolved issues (critical bugs, security concerns, functional gaps, testing, documentation)
-  5. Version Bump - Bumped version 0.2.1 → 0.3.0 (MINOR for new features), updated VERSION, main.py, __init__.py, CHANGELOG.md, VERSIONING.md
+  5. Version Bump - Bumped version 0.2.1 → 0.3.0 (MINOR for new features), updated VERSION, src/nedok/cli.py, __init__.py, CHANGELOG.md, VERSIONING.md
   All tests pass (21/21). All critical, security, and functional gap issues from CODE_REVIEW.md now resolved. Committed and pushed to GitHub (commit 8050894, tag v0.3.0).
 
 - 2025-11-06: Improved Tab key behavior to toggle between panes:
@@ -29,6 +29,8 @@
 - 2025-11-06: Implemented SSH session persistence and auto-reconnect:
   1. Session State Persistence - Save SSH connection details (hostname, username, remote directory) to ~/.nedok.toml under [session.left_ssh] and [session.right_ssh], saved automatically when exiting with active SSH connections
   2. Auto-Reconnect on Startup - Automatically attempts to reconnect to saved SSH sessions, tries SSH agent keys first then saved credentials, graceful fallback to local directory if connection fails
-  3. Implementation - Added get_last_session() and save_session() to config.py, modified browser.browse() to return SSH state, added browser.auto_reconnect_ssh() method, updated main.py to load and restore SSH sessions with user feedback (✓ Reconnected / ⚠ Could not reconnect)
+  3. Implementation - Added get_last_session() and save_session() to config.py, modified browser.browse() to return SSH state, added browser.auto_reconnect_ssh() method, updated src/nedok/cli.py to load and restore SSH sessions with user feedback (✓ Reconnected / ⚠ Could not reconnect)
   4. Documentation - Updated README.md Session Management section with SSH persistence details, updated .nedok.toml.example with SSH session format examples
   Provides seamless workflow: exit with SSH connected, restart automatically reconnected. All tests pass (21/21). Committed and pushed to GitHub (commit 09f4dd3).
+
+- 2025-11-07: Renamed the runtime package from `src/dual_pane_browser` to `src/nedok`, refreshed all documentation to reference the new import path, enhanced the SSH connect workflow to auto-detect saved credentials/SSH-agent support after entering a host, and relocated the CLI entry point to `src/nedok/cli.py`. Users are prompted to reuse detected credentials or override them manually. Bumped version to 0.3.1 and updated CHANGELOG.md, VERSIONING.md, and VERSION. All tests pass (21/21).

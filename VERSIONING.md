@@ -60,13 +60,24 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 1. Update `VERSION` file with new version number
 2. Update `CHANGELOG.md` with release notes
-3. Update version in `main.py` and `__init__.py`
+3. Update version in `src/nedok/cli.py` and `__init__.py`
 4. Commit changes: `git commit -m "Bump version to vX.Y.Z"`
 5. Create git tag: `git tag -a vX.Y.Z -m "Release vX.Y.Z"`
 6. Push changes: `git push origin main --tags`
 7. Create GitHub release from tag with changelog notes
 
 ## Version History
+
+- **v0.4.0** (2025-11-06): Poetry build system migration
+  - Migrated to Poetry for dependency and build management
+  - Added pyproject.toml with Poetry configuration
+  - Formalized src-layout package structure
+  - Modern Python packaging for future PyPI distribution
+
+- **v0.3.1** (2025-11-07): Package rename and SSH credential workflow prompt
+  - Runtime package moved to `src/nedok`
+  - CLI now auto-detects saved/agent credentials after entering a host
+  - Documentation updated to reference the new package name
 
 - **v0.3.0** (2025-11-06): Security and reliability improvements
   - SSH agent integration for key-based authentication

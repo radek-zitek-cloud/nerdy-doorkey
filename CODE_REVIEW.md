@@ -15,8 +15,8 @@
 - **Limited key-based authentication** – ✅ ENHANCED in v0.3.0. SSH agent integration added with automatic key discovery. Authentication order: Agent keys → ~/.ssh/ keys → Password. Respects Paramiko's key discovery mechanism.
 
 ## Maintainability & structure
-- **Monolithic input handler** – `_handle_navigation_key()` is approaching 100 lines of sequential conditionals, making it difficult to maintain. Break the handler into smaller intent-specific helpers (navigation, mode toggles, file ops) or dispatch via a mapping to improve readability. (See `src/dual_pane_browser/input_handlers.py`, lines 23-111.)
-- **Shared logic belongs in `_PaneState`** – navigation actions manipulate `current_dir`, `cursor_index`, and `scroll_offset` directly from the mixin. Consolidate that state management inside `_PaneState` methods to avoid future desynchronization between local and remote behaviour. (See `src/dual_pane_browser/input_handlers.py`, lines 73-94, and `src/dual_pane_browser/state.py`, lines 126-210.)
+- **Monolithic input handler** – `_handle_navigation_key()` is approaching 100 lines of sequential conditionals, making it difficult to maintain. Break the handler into smaller intent-specific helpers (navigation, mode toggles, file ops) or dispatch via a mapping to improve readability. (See `src/nedok/input_handlers.py`, lines 23-111.)
+- **Shared logic belongs in `_PaneState`** – navigation actions manipulate `current_dir`, `cursor_index`, and `scroll_offset` directly from the mixin. Consolidate that state management inside `_PaneState` methods to avoid future desynchronization between local and remote behaviour. (See `src/nedok/input_handlers.py`, lines 73-94, and `src/nedok/state.py`, lines 126-210.)
 - **UI layer hard-codes layout math** – `render_browser()` performs column sizing and layout decisions inline. Consider centralising layout calculations in `render_utils` so the rendering function focuses solely on drawing, which will simplify adapting to alternative terminal sizes.
 
 ## Testing & tooling
@@ -25,3 +25,7 @@
 
 ## ✅ Resolved Documentation (v0.3.0)
 - **Security caveats documentation** – ✅ FIXED in v0.3.0. Added comprehensive SSH Security section to README.md covering authentication methods, host key verification, credential storage warnings, and SSH agent setup examples. Enhanced .nedok.toml.example with security warnings and best practices.
+
+## ✅ Latest Patch (v0.3.1)
+- **Package rename** – Runtime module renamed to `src/nedok` so downstream code should import from `src.nedok` instead of `src.dual_pane_browser`.
+- **Credential reuse prompt** – SSH connect flow now auto-detects saved credentials/SSH-agent availability after entering a host and prompts users to reuse or override them, improving UX without weakening the previous security hardening.

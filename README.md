@@ -70,16 +70,19 @@ Work with git repositories directly from the browser:
    cd nerdy-doorkey
    ```
 
-2. **Create a virtual environment**:
+2. **Install dependencies (Poetry manages the virtual environment automatically)**:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   poetry install
    ```
 
-3. **Install dependencies**:
+3. *(Optional)* **Enter the Poetry shell**:
    ```bash
-   pip install -r requirements.txt
+   poetry shell
    ```
+
+### Package Layout
+
+The runtime Python package lives in `src/nedok` (formerly `src/dual_pane_browser`). Import helpers such as `DualPaneBrowser` via `from src.nedok import DualPaneBrowser`.
 
 ## Usage
 
@@ -87,7 +90,7 @@ Work with git repositories directly from the browser:
 
 Launch the browser:
 ```bash
-python main.py [left_dir] [right_dir]
+python -m src.nedok.cli [left_dir] [right_dir]
 ```
 
 If no directories are specified, both panes start in the current directory.
@@ -96,13 +99,13 @@ If no directories are specified, both panes start in the current directory.
 
 ```bash
 # Browse current directory in both panes
-python main.py
+python -m src.nedok.cli
 
 # Browse two different directories
-python main.py ~/projects ~/documents
+python -m src.nedok.cli ~/projects ~/documents
 
 # Browse home directory and /tmp
-python main.py ~ /tmp
+python -m src.nedok.cli ~ /tmp
 ```
 
 ### Basic Navigation
@@ -132,6 +135,8 @@ Press **m** to open mode selection, then:
 4. Tab to password field
 5. Press Enter to connect
 6. Press **x** to disconnect and return to local
+
+When you leave the host field, Nerdy Doorkey automatically checks for saved credentials or SSH-agent support. If credentials are available, you'll be prompted to reuse them or override with new details before connecting.
 
 ### Getting Help
 
@@ -216,16 +221,16 @@ Nerdy Doorkey automatically saves your complete session when you exit:
 **Example:**
 ```bash
 # First session - connect to remote server
-python main.py
+python -m src.nedok.cli
 # Press S, connect to server.example.com
 # Browse remote files, then quit
 
 # Exit and later restart - automatically reconnects!
-python main.py
+python -m src.nedok.cli
 # ✓ Reconnected left pane to user@server.example.com
 
 # Start fresh with new directories (no auto-reconnect)
-python main.py /tmp /var/log
+python -m src.nedok.cli /tmp /var/log
 ```
 
 ### SSH Credentials & Security
@@ -265,7 +270,7 @@ eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_rsa
 
 # Now connect without password!
-python main.py
+python -m src.nedok.cli
 # Press Ctrl+S to connect to SSH host
 ```
 
@@ -284,7 +289,7 @@ export EDITOR=nano
 export PAGER="bat --style=plain"
 
 # Then launch
-python main.py
+python -m src.nedok.cli
 ```
 
 ## Development
@@ -292,16 +297,15 @@ python main.py
 ### Running Tests
 
 ```bash
-source .venv/bin/activate
-python -m pytest -q
+poetry run python -m pytest -q
 ```
 
 ### Project Structure
 
 ```
 nerdy-doorkey/
-├── main.py                           # Entry point
-├── src/dual_pane_browser/
+├── src/nedok/cli.py                  # Entry point (python -m src.nedok.cli)
+├── src/nedok/
 │   ├── browser.py                    # Core browser orchestration
 │   ├── input_handlers.py            # Keyboard input handling
 │   ├── file_operations.py           # File operation methods

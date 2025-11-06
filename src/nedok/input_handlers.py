@@ -5,8 +5,9 @@ from __future__ import annotations
 import curses
 import os
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING, Callable, List, Optional
 
 from .modes import ALL_MODES
 
@@ -15,6 +16,46 @@ if TYPE_CHECKING:
 
 # Constants
 PAGE_SCROLL_LINES = 5
+
+
+@dataclass(frozen=True)
+class _TextInputModeConfig:
+    """Configuration describing how to handle buffered text input modes."""
+
+    active_flag: str
+    buffer_attr: str
+    cancel_message: str
+    submit_action: Callable[[], None]
+
+
+@dataclass
+class _PendingAction:
+    """Track confirmation prompts with optional decline behavior."""
+
+    message: str
+    confirm_action: Callable[[], None]
+    cancel_action: Optional[Callable[[], None]] = None
+    cancel_message: str = "Cancelled."
+
+    def __iter__(self):
+        """Allow legacy tuple-style unpacking in tests."""
+        yield self.message
+        yield self.confirm_action
+
+    def __getitem__(self, index: int):
+        """Support tuple-style indexing for compatibility."""
+        return (self.message, self.confirm_action)[index]
+
+
+@dataclass
+class _AvailableSSHCredentials:
+    """Describe credentials discovered for a host."""
+
+    host: str
+    username: str
+    password: str
+    sources: List[str]
+    saved_credentials: Optional[dict[str, str]]
 
 
 class InputHandlersMixin:
@@ -188,83 +229,68 @@ class InputHandlersMixin:
 
     def _handle_command_key(self, key_code: int) -> bool:
         """Handle key presses while capturing a shell command."""
-        if key_code == curses.KEY_RESIZE:
-            return True
-        if key_code == 27:  # ESC
-            self.in_command_mode = False
-            self.command_buffer = ""
-            self.status_message = "Command cancelled."
-            return True
-        if key_code in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-            self._execute_command()
-            return True
-        if key_code in (curses.KEY_BACKSPACE, 127, 8):
-            self.command_buffer = self.command_buffer[:-1]
-            return True
-        if 0 <= key_code <= 255 and chr(key_code).isprintable():
-            self.command_buffer += chr(key_code)
-            return True
-        return False
+        mode = _TextInputModeConfig(
+            active_flag="in_command_mode",
+            buffer_attr="command_buffer",
+            cancel_message="Command cancelled.",
+            submit_action=self._execute_command,
+        )
+        return self._handle_text_input_mode(key_code, mode)
 
     def _handle_confirmation_key(self, key_code: int) -> bool:
         """Handle y/n confirmation."""
         if self.pending_action is None:
             return False
 
+        pending = self.pending_action
         if key_code in (ord('y'), ord('Y')):
-            message, action = self.pending_action
             self.pending_action = None
-            action()
+            pending.confirm_action()
             return True
-        elif key_code in (ord('n'), ord('N'), 27):  # n, N, or ESC
+        if key_code in (ord('n'), ord('N'), 27):  # n, N, or ESC
             self.pending_action = None
-            self.status_message = "Cancelled."
+            if pending.cancel_action:
+                pending.cancel_action()
+            else:
+                self.status_message = pending.cancel_message
             return True
         return False
 
     def _handle_rename_key(self, key_code: int) -> bool:
         """Handle key presses during rename."""
-        if key_code == curses.KEY_RESIZE:
-            return True
-        if key_code == 27:  # ESC
-            self.in_rename_mode = False
-            self.rename_buffer = ""
-            self.status_message = "Rename cancelled."
-            return True
-        if key_code in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-            self._execute_rename()
-            return True
-        if key_code in (curses.KEY_BACKSPACE, 127, 8):
-            self.rename_buffer = self.rename_buffer[:-1]
-            return True
-        if 0 <= key_code <= 255 and chr(key_code).isprintable():
-            self.rename_buffer += chr(key_code)
-            return True
-        return False
+        mode = _TextInputModeConfig(
+            active_flag="in_rename_mode",
+            buffer_attr="rename_buffer",
+            cancel_message="Rename cancelled.",
+            submit_action=self._execute_rename,
+        )
+        return self._handle_text_input_mode(key_code, mode)
 
     def _handle_create_key(self, key_code: int) -> bool:
         """Handle key presses during file/dir creation."""
-        if key_code == curses.KEY_RESIZE:
-            return True
-        if key_code == 27:  # ESC
-            self.in_create_mode = False
-            self.create_buffer = ""
-            self.status_message = "Create cancelled."
-            return True
-        if key_code in (curses.KEY_ENTER, ord("\n"), ord("\r")):
-            self._execute_create()
-            return True
-        if key_code in (curses.KEY_BACKSPACE, 127, 8):
-            self.create_buffer = self.create_buffer[:-1]
-            return True
-        if 0 <= key_code <= 255 and chr(key_code).isprintable():
-            self.create_buffer += chr(key_code)
-            return True
-        return False
+        mode = _TextInputModeConfig(
+            active_flag="in_create_mode",
+            buffer_attr="create_buffer",
+            cancel_message="Create cancelled.",
+            submit_action=self._execute_create,
+        )
+        return self._handle_text_input_mode(key_code, mode)
 
-    def _request_confirmation(self, message: str, action: Callable[[], None]) -> None:
-        """Show confirmation prompt for destructive action."""
-        self.pending_action = (message, action)
+    def _request_confirmation(
+        self,
+        message: str,
+        action: Callable[[], None],
+        *,
+        on_decline: Optional[Callable[[], None]] = None,
+        cancel_message: str = "Cancelled.",
+    ) -> None:
+        """Show confirmation prompt with optional decline handling."""
+        self.pending_action = _PendingAction(
+            message=message,
+            confirm_action=action,
+            cancel_action=on_decline,
+            cancel_message=cancel_message,
+        )
         self.status_message = f"{message} (y/n)"
 
     def _refresh_active_pane(self) -> None:
@@ -305,27 +331,7 @@ class InputHandlersMixin:
                 stderr_text = stderr.read().decode('utf-8', errors='replace')
                 exit_code = stdout.channel.recv_exit_status()
 
-                output_lines: List[str] = []
-                if stdout_text:
-                    output_lines.extend(stdout_text.rstrip("\n").splitlines())
-                if stderr_text:
-                    if output_lines:
-                        output_lines.append("--- stderr ---")
-                    output_lines.extend(stderr_text.rstrip("\n").splitlines())
-
-                if not output_lines:
-                    output_lines = ["<no output>"]
-
-                from .browser import OUTPUT_BUFFER_MAX_LINES
-                # Check if output was truncated
-                if len(output_lines) > OUTPUT_BUFFER_MAX_LINES:
-                    truncated_count = len(output_lines) - OUTPUT_BUFFER_MAX_LINES
-                    self.command_output = [
-                        f"... [truncated {truncated_count} lines] ...",
-                        ""
-                    ] + output_lines[-OUTPUT_BUFFER_MAX_LINES:]
-                else:
-                    self.command_output = output_lines
+                self.command_output = self._format_command_output(stdout_text, stderr_text)
                 self.status_message = f"Remote command exited with code {exit_code}."
             except Exception as err:
                 self.command_output = [f"Failed to run remote command: {err}"]
@@ -346,28 +352,7 @@ class InputHandlersMixin:
                 self.status_message = "Command execution failed."
                 return
 
-            output_lines: List[str] = []
-            if result.stdout:
-                output_lines.extend(result.stdout.rstrip("\n").splitlines())
-            if result.stderr:
-                if output_lines:
-                    output_lines.append("--- stderr ---")
-                output_lines.extend(result.stderr.rstrip("\n").splitlines())
-
-            if not output_lines:
-                output_lines = ["<no output>"]
-
-            # Bound output length to avoid overflowing the UI.
-            from .browser import OUTPUT_BUFFER_MAX_LINES
-            # Check if output was truncated
-            if len(output_lines) > OUTPUT_BUFFER_MAX_LINES:
-                truncated_count = len(output_lines) - OUTPUT_BUFFER_MAX_LINES
-                self.command_output = [
-                    f"... [truncated {truncated_count} lines] ...",
-                    ""
-                ] + output_lines[-OUTPUT_BUFFER_MAX_LINES:]
-            else:
-                self.command_output = output_lines
+            self.command_output = self._format_command_output(result.stdout, result.stderr)
             self.status_message = f"Command exited with code {result.returncode}."
 
     def _start_ssh_connect(self) -> None:
@@ -377,6 +362,7 @@ class InputHandlersMixin:
         self.ssh_user_buffer = os.getenv("USER", "user")
         self.ssh_password_buffer = ""
         self.ssh_input_field = 0
+        self.ssh_available_credentials = None
         self.status_message = "SSH: Will try agent keys first, then password. 🔐 Use SSH agent for security!"
 
     def _handle_ssh_connect_key(self, key_code: int) -> bool:
@@ -392,24 +378,19 @@ class InputHandlersMixin:
             self.status_message = "SSH connection cancelled."
             return True
         if key_code in (curses.KEY_ENTER, ord("\n"), ord("\r")):
+            if self.ssh_input_field == 0 and self._handle_host_field_exit():
+                return True
             if self.ssh_input_field < 2:
-                # Moving from host field - try to load credentials
-                if self.ssh_input_field == 0:
-                    self._load_ssh_credentials()
-                # Move to next field
                 self.ssh_input_field += 1
                 return True
-            else:
-                # Final field - execute connection
-                self._execute_ssh_connect()
-                return True
+            # Final field - execute connection
+            self._execute_ssh_connect()
+            return True
         if key_code == ord("\t"):
             # Tab to next field
-            old_field = self.ssh_input_field
+            if self.ssh_input_field == 0 and self._handle_host_field_exit():
+                return True
             self.ssh_input_field = (self.ssh_input_field + 1) % 3
-            # Moving from host field - try to load credentials
-            if old_field == 0:
-                self._load_ssh_credentials()
             return True
         if key_code in (curses.KEY_BACKSPACE, 127, 8):
             if self.ssh_input_field == 0:
@@ -524,24 +505,91 @@ class InputHandlersMixin:
         except Exception as err:
             self.status_message = f"Error disconnecting: {err}"
 
-    def _load_ssh_credentials(self) -> None:
-        """Load saved SSH credentials for current hostname if available."""
-        from .config import get_ssh_credentials
-
+    def _handle_host_field_exit(self) -> bool:
+        """Check for available credentials when leaving the host field."""
         host = self.ssh_host_buffer.strip()
         if not host:
+            return False
+
+        available = self._detect_available_credentials(host)
+        if not available:
+            return False
+
+        self.ssh_available_credentials = available
+        source_text = self._format_credential_sources(available.sources)
+        self._request_confirmation(
+            f"Credentials available for {host} via {source_text}. Override them?",
+            self._begin_manual_credentials_override,
+            on_decline=self._connect_with_available_credentials,
+            cancel_message="Connecting with existing credentials...",
+        )
+        return True
+
+    def _detect_available_credentials(self, host: str) -> Optional["_AvailableSSHCredentials"]:
+        """Look for saved credentials or SSH agent support."""
+        from .config import get_ssh_credentials
+
+        saved_creds = get_ssh_credentials(host)
+        agent_available = bool(os.environ.get("SSH_AUTH_SOCK"))
+
+        if not saved_creds and not agent_available:
+            return None
+
+        username = (
+            (saved_creds.get("username") if saved_creds else None)
+            or self.ssh_user_buffer
+            or os.getenv("USER", "user")
+        )
+        password = saved_creds.get("password") if saved_creds else ""
+
+        sources: List[str] = []
+        if saved_creds:
+            sources.append("saved config")
+        if agent_available:
+            sources.append("SSH agent")
+
+        return _AvailableSSHCredentials(
+            host=host,
+            username=username,
+            password=password or "",
+            sources=sources,
+            saved_credentials=saved_creds,
+        )
+
+    @staticmethod
+    def _format_credential_sources(sources: List[str]) -> str:
+        """Return a readable description of credential sources."""
+        if not sources:
+            return "unknown source"
+        if len(sources) == 1:
+            return sources[0]
+        if len(sources) == 2:
+            return f"{sources[0]} and {sources[1]}"
+        return ", ".join(sources[:-1]) + f", and {sources[-1]}"
+
+    def _begin_manual_credentials_override(self) -> None:
+        """Allow the user to enter new credentials instead of saved ones."""
+        if self.ssh_available_credentials and self.ssh_available_credentials.saved_credentials:
+            saved_username = self.ssh_available_credentials.saved_credentials.get("username")
+            if saved_username:
+                self.ssh_user_buffer = saved_username
+        self.ssh_password_buffer = ""
+        self.ssh_input_field = 1
+        self.ssh_available_credentials = None
+        self.status_message = "Override selected. Enter SSH username."
+
+    def _connect_with_available_credentials(self) -> None:
+        """Connect immediately using discovered credentials."""
+        available = self.ssh_available_credentials
+        if not available:
+            self.status_message = "No credentials available; enter them manually."
             return
 
-        creds = get_ssh_credentials(host)
-        if creds:
-            # Pre-populate username and password
-            if "username" in creds and not self.ssh_user_buffer:
-                self.ssh_user_buffer = creds["username"]
-            if "password" in creds and not self.ssh_password_buffer:
-                self.ssh_password_buffer = creds["password"]
-                self.status_message = f"⚠️  Loaded plaintext password for {host}. Consider using SSH agent!"
-            else:
-                self.status_message = f"Loaded saved username for {host}"
+        self.ssh_user_buffer = available.username or (self.ssh_user_buffer or os.getenv("USER", "user"))
+        self.ssh_password_buffer = available.password or ""
+        self.ssh_available_credentials = None
+        self.status_message = "Connecting with available credentials..."
+        self._execute_ssh_connect()
 
     def _approve_host_key_and_connect(self) -> None:
         """Retry SSH connection after user approves unknown host key."""
@@ -571,6 +619,56 @@ class InputHandlersMixin:
             self.status_message = f"⚠️  Saved credentials for {host} (password in plaintext!)"
         else:
             self.status_message = f"Saved username for {host}"
+
+    def _handle_text_input_mode(self, key_code: int, mode: _TextInputModeConfig) -> bool:
+        """Shared handler for simple buffered text input modes."""
+        if key_code == curses.KEY_RESIZE:
+            return True
+        if key_code == 27:  # ESC
+            setattr(self, mode.active_flag, False)
+            setattr(self, mode.buffer_attr, "")
+            self.status_message = mode.cancel_message
+            return True
+        if key_code in (curses.KEY_ENTER, ord("\n"), ord("\r")):
+            mode.submit_action()
+            return True
+        if key_code in (curses.KEY_BACKSPACE, 127, 8):
+            current_value = getattr(self, mode.buffer_attr)
+            setattr(self, mode.buffer_attr, current_value[:-1])
+            return True
+        if 0 <= key_code <= 255 and chr(key_code).isprintable():
+            current_value = getattr(self, mode.buffer_attr)
+            setattr(self, mode.buffer_attr, current_value + chr(key_code))
+            return True
+        return False
+
+    def _format_command_output(self, stdout_text: str, stderr_text: str) -> List[str]:
+        """Combine stdout/stderr text and truncate to fit the UI buffer."""
+        output_lines: List[str] = []
+        if stdout_text:
+            output_lines.extend(stdout_text.rstrip("\n").splitlines())
+        if stderr_text:
+            if output_lines:
+                output_lines.append("--- stderr ---")
+            output_lines.extend(stderr_text.rstrip("\n").splitlines())
+
+        if not output_lines:
+            output_lines = ["<no output>"]
+        return self._trim_output_for_display(output_lines)
+
+    def _trim_output_for_display(self, output_lines: List[str]) -> List[str]:
+        """Ensure command output stays within the UI buffer size."""
+        from .browser import OUTPUT_BUFFER_MAX_LINES
+
+        if len(output_lines) <= OUTPUT_BUFFER_MAX_LINES:
+            return output_lines
+
+        truncated_count = len(output_lines) - OUTPUT_BUFFER_MAX_LINES
+        return [
+            f"... [truncated {truncated_count} lines] ...",
+            "",
+            *output_lines[-OUTPUT_BUFFER_MAX_LINES:],
+        ]
 
 
 __all__ = ["InputHandlersMixin"]
