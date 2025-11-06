@@ -7,6 +7,7 @@ from enum import Enum
 
 class BrowserMode(Enum):
     FILE = "file"
+    TREE = "tree"
     GIT = "git"
     OWNER = "owner"
 
@@ -14,13 +15,15 @@ class BrowserMode(Enum):
     def label(self) -> str:
         if self is BrowserMode.FILE:
             return "File"
+        elif self is BrowserMode.TREE:
+            return "Tree"
         elif self is BrowserMode.GIT:
             return "Git"
         else:
             return "Owner"
 
 
-ALL_MODES = [BrowserMode.FILE, BrowserMode.GIT, BrowserMode.OWNER]
+ALL_MODES = [BrowserMode.FILE, BrowserMode.TREE, BrowserMode.GIT, BrowserMode.OWNER]
 
 
 __all__ = ["BrowserMode", "ALL_MODES"]

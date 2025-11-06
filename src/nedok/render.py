@@ -220,7 +220,16 @@ def render_browser_pane(
             name_attrs = color_attrs
             base_attrs = curses.A_NORMAL
 
-        name_text = truncate(entry.display_name, name_width)
+        if mode is BrowserMode.TREE and getattr(pane, "tree_mode_enabled", False):
+            indent = "  " * getattr(entry, "tree_depth", 0)
+            if entry.is_dir:
+                indicator = "+" if entry.tree_is_collapsed else "-"
+            else:
+                indicator = " "
+            tree_label = f"{indent}{indicator} {entry.display_name}"
+            name_text = truncate(tree_label, name_width)
+        else:
+            name_text = truncate(entry.display_name, name_width)
 
         # Mode column value
         if mode is BrowserMode.GIT:
