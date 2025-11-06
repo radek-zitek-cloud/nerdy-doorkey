@@ -1,7 +1,7 @@
 """Tests for configuration management."""
 
 import copy
-from src.nedok.config import DEFAULT_CONFIG, load_config, _merge_config
+from nedok.config import DEFAULT_CONFIG, load_config, _merge_config
 
 
 def test_default_config_not_mutated():

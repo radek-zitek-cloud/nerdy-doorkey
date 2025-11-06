@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import List
 
-from .modes import BrowserMode
+from nedok.modes import BrowserMode
 
 def build_help_lines(mode: BrowserMode) -> List[str]:
     """Return formatted help lines for all modes (all commands available)."""

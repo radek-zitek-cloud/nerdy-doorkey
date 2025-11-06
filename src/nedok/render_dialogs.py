@@ -5,12 +5,12 @@ from __future__ import annotations
 import curses
 from typing import Optional, Tuple, TYPE_CHECKING
 
-from .help_text import build_help_lines
-from .modes import ALL_MODES
-from .render_utils import draw_frame, draw_frame_title, truncate_end
+from nedok.help_text import build_help_lines
+from nedok.modes import ALL_MODES
+from nedok.render_utils import draw_frame, draw_frame_title, truncate_end
 
 if TYPE_CHECKING:
-    from .browser import DualPaneBrowser
+    from nedok.browser import DualPaneBrowser
 
 
 def render_mode_prompt(

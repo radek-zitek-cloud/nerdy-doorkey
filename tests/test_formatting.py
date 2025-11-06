@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from src.nedok.formatting import format_size, format_timestamp
+from nedok.formatting import format_size, format_timestamp
 
 
 def test_format_size_scales_units():

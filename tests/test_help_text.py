@@ -1,5 +1,5 @@
-from src.nedok.help_text import build_help_lines
-from src.nedok.modes import BrowserMode
+from nedok.help_text import build_help_lines
+from nedok.modes import BrowserMode
 
 
 def test_help_lines_cover_shortcuts():

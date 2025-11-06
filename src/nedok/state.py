@@ -11,10 +11,10 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
-from .formatting import format_size, format_timestamp
-from .git_status import collect_git_status
-from .modes import BrowserMode
-from .ssh_connection import SSHConnection
+from nedok.formatting import format_size, format_timestamp
+from nedok.git_status import collect_git_status
+from nedok.modes import BrowserMode
+from nedok.ssh_connection import SSHConnection
 
 
 class PaneStateError(Exception):

@@ -7,19 +7,19 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional, Tuple
 
-from .colors import init_colors
-from .file_operations import FileOperationsMixin
-from .git_operations import GitOperationsMixin
-from .input_handlers import InputHandlersMixin
-from .modes import BrowserMode
-from .render import render_browser
-from .state import _PaneState
+from nedok.colors import init_colors
+from nedok.file_operations import FileOperationsMixin
+from nedok.git_operations import GitOperationsMixin
+from nedok.input_handlers import InputHandlersMixin
+from nedok.modes import BrowserMode
+from nedok.render import render_browser
+from nedok.state import _PaneState
 
 # Constants
 OUTPUT_BUFFER_MAX_LINES = 200
 
 if TYPE_CHECKING:
-    from .input_handlers import _PendingAction, _AvailableSSHCredentials
+    from nedok.input_handlers import _PendingAction, _AvailableSSHCredentials
 
 
 class DualPaneBrowserError(Exception):

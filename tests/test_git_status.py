@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from src.nedok.git_status import collect_git_status
+from nedok.git_status import collect_git_status
 
 
 def test_collect_git_status_outside_repo(tmp_path: Path):

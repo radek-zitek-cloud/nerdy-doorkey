@@ -5,10 +5,10 @@ from __future__ import annotations
 import curses
 from typing import Optional, Tuple, TYPE_CHECKING
 
-from .colors import get_file_color, get_git_color
-from .help_text import build_help_lines
-from .modes import BrowserMode
-from .render_dialogs import (
+from nedok.colors import get_file_color, get_git_color
+from nedok.help_text import build_help_lines
+from nedok.modes import BrowserMode
+from nedok.render_dialogs import (
     render_confirmation_dialog,
     render_create_input,
     render_help_panel,
@@ -16,11 +16,11 @@ from .render_dialogs import (
     render_rename_input,
     render_ssh_connect_input,
 )
-from .render_utils import determine_column_widths, draw_frame, draw_frame_title, truncate, truncate_end
-from .state import _PaneState
+from nedok.render_utils import determine_column_widths, draw_frame, draw_frame_title, truncate, truncate_end
+from nedok.state import _PaneState
 
 if TYPE_CHECKING:
-    from .browser import DualPaneBrowser
+    from nedok.browser import DualPaneBrowser
 
 # Terminal size limits
 MIN_TERMINAL_HEIGHT = 9

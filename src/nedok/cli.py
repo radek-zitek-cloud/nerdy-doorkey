@@ -4,8 +4,8 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import DualPaneBrowser, DualPaneBrowserError
-from .config import get_last_session, save_session
+from nedok import DualPaneBrowser, DualPaneBrowserError
+from nedok.config import get_last_session, save_session
 
 __version__ = "0.4.0"
 

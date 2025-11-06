@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, List, Optional
 
-from .modes import ALL_MODES
+from nedok.modes import ALL_MODES
 
 if TYPE_CHECKING:
     pass
