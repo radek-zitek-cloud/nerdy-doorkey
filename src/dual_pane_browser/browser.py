@@ -142,6 +142,18 @@ class DualPaneBrowser(InputHandlersMixin, FileOperationsMixin, GitOperationsMixi
         curses.endwin()
         try:
             subprocess.run(command, check=False)
+            # Wait for user to press a key before returning to browser
+            print("\nPress any key to continue...", end='', flush=True)
+            import sys
+            import tty
+            import termios
+            fd = sys.stdin.fileno()
+            old_settings = termios.tcgetattr(fd)
+            try:
+                tty.setraw(fd)
+                sys.stdin.read(1)
+            finally:
+                termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
             self.status_message = f"Ran {' '.join(command)}"
         except (OSError, subprocess.SubprocessError) as err:
             self.status_message = f"Command failed: {err}"

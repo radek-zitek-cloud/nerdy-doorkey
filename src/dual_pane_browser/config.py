@@ -40,6 +40,10 @@ DEFAULT_CONFIG = {
         "credentials": {},
         # Format: {"hostname": {"username": "user", "password": "encrypted_pass"}}
     },
+    "session": {
+        "left_directory": ".",
+        "right_directory": ".",
+    },
 }
 
 # Color name to curses color mapping
@@ -138,6 +142,25 @@ def create_default_config() -> None:
     save_config(DEFAULT_CONFIG)
 
 
+def get_last_directories() -> tuple[str, str]:
+    """Get last used directories from session state."""
+    config = load_config()
+    session = config.get("session", {})
+    left = session.get("left_directory", ".")
+    right = session.get("right_directory", ".")
+    return (left, right)
+
+
+def save_last_directories(left: str, right: str) -> None:
+    """Save last used directories to session state."""
+    config = load_config()
+    if "session" not in config:
+        config["session"] = {}
+    config["session"]["left_directory"] = left
+    config["session"]["right_directory"] = right
+    save_config(config)
+
+
 __all__ = [
     "CONFIG_FILE",
     "load_config",
@@ -147,4 +170,6 @@ __all__ = [
     "get_ssh_credentials",
     "save_ssh_credentials",
     "create_default_config",
+    "get_last_directories",
+    "save_last_directories",
 ]

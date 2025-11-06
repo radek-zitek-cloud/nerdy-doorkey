@@ -23,14 +23,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "left_directory",
         nargs="?",
-        default=".",
-        help="Path for the left pane (default: current directory).",
+        default=None,
+        help="Path for the left pane (default: last used or current directory).",
     )
     parser.add_argument(
         "right_directory",
         nargs="?",
-        default=".",
-        help="Path for the right pane (default: current directory).",
+        default=None,
+        help="Path for the right pane (default: last used or current directory).",
     )
     return parser.parse_args()
 
@@ -43,8 +43,17 @@ def main() -> int:
         print("The dual-pane browser requires an interactive terminal.")
         return 1
 
-    left = Path(args.left_directory).expanduser()
-    right = Path(args.right_directory).expanduser()
+    # Load directories from arguments or saved session
+    if args.left_directory is None and args.right_directory is None:
+        # No directories specified - load from config
+        from src.dual_pane_browser.config import get_last_directories
+        saved_left, saved_right = get_last_directories()
+        left = Path(saved_left).expanduser()
+        right = Path(saved_right).expanduser()
+    else:
+        # Use provided directories (or current if only one provided)
+        left = Path(args.left_directory or ".").expanduser()
+        right = Path(args.right_directory or ".").expanduser()
 
     try:
         browser = DualPaneBrowser(left, right)
@@ -52,6 +61,10 @@ def main() -> int:
     except DualPaneBrowserError as err:
         print(f"Could not start browser: {err}")
         return 1
+
+    # Save final directories to config for next session
+    from src.dual_pane_browser.config import save_last_directories
+    save_last_directories(str(final_left), str(final_right))
 
     print(f"Final left pane directory: {final_left}")
     print(f"Final right pane directory: {final_right}")

@@ -35,3 +35,10 @@ directory = "blue_bold"       # Directories (always blue in git mode)
 # [ssh.credentials."server.local"]
 # username = "admin"
 # password = "secret123"
+
+# Session State
+# Automatically saved when you exit the browser
+# Restored when you launch without specifying directories
+[session]
+left_directory = "."
+right_directory = "."

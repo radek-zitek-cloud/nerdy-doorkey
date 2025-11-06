@@ -184,6 +184,7 @@ Other:          :cmd  m)ode  h)elp  q)uit
 Nerdy Doorkey supports a configuration file at `~/.nedok.toml` for customizing:
 - Color schemes for File and Git modes
 - Saved SSH credentials
+- Session state (last used directories)
 
 **Example configuration:**
 ```bash
@@ -195,6 +196,25 @@ nano ~/.nedok.toml
 ```
 
 See `.nedok.toml.example` in the repository for full configuration options.
+
+### Session Management
+
+Nerdy Doorkey automatically saves your session when you exit:
+- **Last directories**: Both pane locations are saved to `~/.nedok.toml`
+- **Auto-restore**: Launch without arguments to resume from your last session
+- **Manual override**: Specify directories as arguments to start fresh
+
+**Example:**
+```bash
+# First session - browse specific directories
+python main.py ~/projects ~/documents
+
+# Exit and later restart - resumes from last location
+python main.py
+
+# Start fresh with new directories
+python main.py /tmp /var/log
+```
 
 ### SSH Credentials
 
