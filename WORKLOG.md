@@ -22,3 +22,6 @@
   4. Documentation Updates - Updated CODE_REVIEW.md to mark all resolved issues (critical bugs, security concerns, functional gaps, testing, documentation)
   5. Version Bump - Bumped version 0.2.1 → 0.3.0 (MINOR for new features), updated VERSION, main.py, __init__.py, CHANGELOG.md, VERSIONING.md
   All tests pass (21/21). All critical, security, and functional gap issues from CODE_REVIEW.md now resolved. Committed and pushed to GitHub (commit 8050894, tag v0.3.0).
+
+- 2025-11-06: Improved Tab key behavior to toggle between panes:
+  Changed Tab key from always switching to right pane to toggling back and forth between left and right panes (using `1 - active_index`). Arrow keys (←/→) and Shift+Tab still provide direct pane selection. Updated README.md and COMMANDS.md documentation. All tests pass (21/21). Committed and pushed to GitHub (commit 181b1a1).
