@@ -6,7 +6,7 @@ from pathlib import Path
 
 from src.dual_pane_browser import DualPaneBrowser, DualPaneBrowserError
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 def parse_args() -> argparse.Namespace:

@@ -68,6 +68,11 @@ After 1.0.0, all version increments will follow strict semantic versioning.
 
 ## Version History
 
+- **v0.2.1** (2025-11-06): Critical bug fixes
+  - Fixed remote navigation crash (backspace on SSH panes)
+  - Fixed configuration mutation bug (deep copy issue)
+  - Added error feedback for config save failures
+
 - **v0.2.0** (2025-01-05): Configuration and session management
   - TOML configuration file support
   - SSH credential auto-save and auto-load

@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-11-06
+
+### Fixed
+
+#### Critical Bug Fixes
+- **Remote navigation crash** - Fixed AttributeError when pressing backspace on SSH panes
+  - Added `_PaneState.go_to_parent()` method to handle both local (Path) and remote (str) paths
+  - Remote paths now use `PurePosixPath` for parent directory navigation
+  - Modified `input_handlers.py` to use new method instead of direct `.parent` access
+- **Configuration mutation bug** - Fixed runtime mutations polluting DEFAULT_CONFIG
+  - Replaced shallow copy (`dict.copy()`) with deep copy (`copy.deepcopy()`)
+  - SSH credentials and other config changes no longer corrupt module-level defaults
+  - Fixed in `load_config()` and `_merge_config()` functions
+- **Silent save failures** - Added error feedback when configuration save fails
+  - Configuration save failures now print warnings to stderr
+  - Users receive feedback instead of silent data loss
+  - Preserves non-breaking behavior while informing users of issues
+
+All fixes identified in CODE_REVIEW.md and verified with existing test suite.
+
 ## [0.2.0] - 2025-01-05
 
 ### Added
