@@ -110,8 +110,9 @@ python main.py ~ /tmp
 - **↑↓** or **j/k**: Move cursor up/down
 - **Enter**: Enter selected directory
 - **Backspace**: Go to parent directory
-- **Tab** or **→**: Switch to right pane
-- **Shift+Tab** or **←**: Switch to left pane
+- **Tab**: Toggle between left/right pane
+- **→**: Switch to right pane
+- **←** or **Shift+Tab**: Switch to left pane
 - **PgUp/PgDn**: Scroll by 5 lines
 
 ### Display Modes

@@ -35,7 +35,11 @@ class InputHandlersMixin:
         if key_code in (curses.KEY_NPAGE,):
             pane.move_cursor(PAGE_SCROLL_LINES)
             return True
-        if key_code in (curses.KEY_RIGHT, ord("\t")):
+        if key_code in (ord("\t"),):
+            # Tab toggles between panes
+            self.active_index = 1 - self.active_index
+            return True
+        if key_code in (curses.KEY_RIGHT,):
             self.active_index = 1
             return True
         if key_code in (curses.KEY_LEFT, curses.KEY_BTAB):

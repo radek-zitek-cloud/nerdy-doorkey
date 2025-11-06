@@ -19,7 +19,8 @@ Complete documentation of all commands, keybindings, git status symbols, and col
 | `PgDn` | Move cursor down by 5 lines |
 | `Enter` | Enter selected directory |
 | `Backspace` | Go to parent directory |
-| `→` / `Tab` | Switch to right pane |
+| `Tab` | Toggle between left/right pane |
+| `→` | Switch to right pane |
 | `←` / `Shift+Tab` | Switch to left pane |
 
 ## File Operations (Available in All Modes)
